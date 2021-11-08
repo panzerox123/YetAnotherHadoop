@@ -36,7 +36,11 @@ def create_dfs():
     exit(0)
 
 def cli():
-    pass
+    while True:
+        cmd = input(">")
+        if cmd.strip().lower() == 'exit':
+            break
+
 
 def __main__():
     try:
@@ -69,7 +73,11 @@ def __main__():
     except Exception as e:
         print("Unhandled exception occurred:", e)
         exit(-1)
-    print(dfs_setup_config)
+    print("<---DFS DETAILS--->")
+    for i in dfs_setup_config:
+        print(i, dfs_setup_config[i], sep=':')
+    print("<---DFS COMMAND LINE--->")
+    cli()
     exit(0)
 
 __main__()
