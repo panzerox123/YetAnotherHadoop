@@ -1,7 +1,7 @@
 import json
-from json.decoder import JSONDecodeError
 import sys
 import os
+import threading
 
 def create_dfs():
     config_path = input("Enter path for configuration file: ")
@@ -12,7 +12,7 @@ def create_dfs():
     except FileNotFoundError:
         print("Path does not exist")
         exit(-1)
-    except JSONDecodeError:
+    except json.decoder.JSONDecodeError:
         print("Configuration file not formatted correctly")
         exit(-1)
     try:
