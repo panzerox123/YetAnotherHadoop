@@ -1,2 +1,8 @@
 *.json
 cache_file
+config.json
+DataNodeLog
+DataNodes
+NameNode
+NameNodeCPts
+NameNodeLog

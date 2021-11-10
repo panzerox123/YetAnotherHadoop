@@ -44,7 +44,7 @@ def cli():
 
 def __main__():
     try:
-        dfs_setup_config_path = os.path.expandvars(sys.argv[1], 'r')
+        dfs_setup_config_path = os.path.expandvars(sys.argv[1])
         dfs_setup_config_file = open(dfs_setup_config_path, 'r')
         dfs_setup_config = json.load(dfs_setup_config_file)
         dfs_setup_config_file.close()
