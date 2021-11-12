@@ -1,12 +1,13 @@
 import json
 import sys
 import os
-import threading
+import multiprocessing
+import namenode
 
 def create_dfs():
     config_path = input("Enter path for configuration file: ")
     try:
-        config_file = open(os.path.expandvars(config_path), 'r')
+        config_file = open(os.path.expandvars(config_path))
         config = json.load(config_file)
         config_file.close()
     except FileNotFoundError:
@@ -35,17 +36,63 @@ def create_dfs():
         exit(-1)
     exit(0)
 
-def cli():
+def master():
+    
+    MainNamenodeQueue = multiprocessing.Queue()
+    MainNamenodeLock = multiprocessing.Lock()
+    Namenode = multiprocessing.Process(target=namenode.master, args=((MainNamenodeQueue), MainNamenodeLock))
+    Namenode.start()
+
+    cli(MainNamenodeQueue, MainNamenodeLock)
+    
+    Namenode.join()
+
+def sendMsg(Queue, Lock, Data):
+    
+    Lock.acquire(block = True)
+    Queue.put(Data)
+    Lock.release()
+
+def receiveMsg(Queue, Lock):
+    
+    Lock.acquire(block = True)
+
+    while(Queue.empty() != True):
+        Message = Queue.get()
+        
+        if(Message == 0):
+            break
+        else:
+            print(Message)
+
+    Lock.release()
+
+    if(Message == 0):
+        return 0
+    else:
+        return 1
+
+def stopAllNodes(NamenodeQueue, NamenodeLock):
+    
+    sendMsg(NamenodeQueue, NamenodeLock, 0)
+    print("Stopping NameNodes")
+    
+
+def cli(NamenodeQueue, NamenodeLock):
+    
+    sendMsg(NamenodeQueue, NamenodeLock, 1)
+
     while True:
         cmd = input(">")
         if cmd.strip().lower() == 'exit':
+            stopAllNodes(NamenodeQueue, NamenodeLock)
             break
-
-
-def __main__():
+    
+if __name__ == "__main__":
     try:
-        dfs_setup_config_path = os.path.expandvars(sys.argv[1], 'r')
+        dfs_setup_config_path = os.path.expandvars(sys.argv[1])
         dfs_setup_config_file = open(dfs_setup_config_path, 'r')
+        global dfs_setup_config
         dfs_setup_config = json.load(dfs_setup_config_file)
         dfs_setup_config_file.close()
         cache_file = open('./cache_file', 'w')
@@ -77,7 +124,5 @@ def __main__():
     for i in dfs_setup_config:
         print(i, dfs_setup_config[i], sep=':')
     print("<---DFS COMMAND LINE--->")
-    cli()
+    master()
     exit(0)
-
-__main__()
