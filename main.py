@@ -4,6 +4,43 @@ import os
 import multiprocessing
 import namenode
 
+class NameNode:
+    def __init__(self, config):
+        self.config = config;
+        self.nameNodeQueue = multiprocessing.Queue()
+        self.nameNodeLock = multiprocessing.Lock()
+        self.nameNode = multiprocessing.Process(target=namenode.nn_loop, args=((self.nameNodeQueue), self.nameNodeLock))
+
+    def startNN(self):
+        self.nameNode.start()
+    
+    def joinNN(self):
+        self.nameNode.join()
+        
+    def sendMsg(self, Data):
+        self.nameNodeLock.acquire(block = True)
+        self.nameNodeQueue.put(Data)
+        self.nameNodeLock.release()
+
+    def receiveMsg(self):
+        self.nameNodeLock.acquire(block = True)
+        while(self.nameNodeQueue.empty() != True):
+            message = self.nameNodeQueue.get()
+            if(message == 0):
+                break
+            else:
+                print(message)
+        self.nameNodeLock.release()
+        if(message == 0):
+            return 0
+        else:
+            return 1
+
+    def stopAllNodes(self):
+        self.sendMsg(0)
+        print("Stopping NameNodes")
+        
+
 def create_dfs():
     config_path = input("Enter path for configuration file: ")
     try:
@@ -36,63 +73,26 @@ def create_dfs():
         exit(-1)
     exit(0)
 
-def master():
+def start_cli(config):
+    primary_nn = NameNode(config)
+    primary_nn.startNN()
+    cli(primary_nn)
+    primary_nn.joinNN()
+
+def cli(primary_nn):
     
-    MainNamenodeQueue = multiprocessing.Queue()
-    MainNamenodeLock = multiprocessing.Lock()
-    Namenode = multiprocessing.Process(target=namenode.master, args=((MainNamenodeQueue), MainNamenodeLock))
-    Namenode.start()
-
-    cli(MainNamenodeQueue, MainNamenodeLock)
-    
-    Namenode.join()
-
-def sendMsg(Queue, Lock, Data):
-    
-    Lock.acquire(block = True)
-    Queue.put(Data)
-    Lock.release()
-
-def receiveMsg(Queue, Lock):
-    
-    Lock.acquire(block = True)
-
-    while(Queue.empty() != True):
-        Message = Queue.get()
-        
-        if(Message == 0):
-            break
-        else:
-            print(Message)
-
-    Lock.release()
-
-    if(Message == 0):
-        return 0
-    else:
-        return 1
-
-def stopAllNodes(NamenodeQueue, NamenodeLock):
-    
-    sendMsg(NamenodeQueue, NamenodeLock, 0)
-    print("Stopping NameNodes")
-    
-
-def cli(NamenodeQueue, NamenodeLock):
-    
-    sendMsg(NamenodeQueue, NamenodeLock, 1)
+    primary_nn.sendMsg(1)
 
     while True:
         cmd = input(">")
         if cmd.strip().lower() == 'exit':
-            stopAllNodes(NamenodeQueue, NamenodeLock)
+            primary_nn.stopAllNodes()
             break
     
 if __name__ == "__main__":
     try:
         dfs_setup_config_path = os.path.expandvars(sys.argv[1])
         dfs_setup_config_file = open(dfs_setup_config_path, 'r')
-        global dfs_setup_config
         dfs_setup_config = json.load(dfs_setup_config_file)
         dfs_setup_config_file.close()
         cache_file = open('./cache_file', 'w')
@@ -124,5 +124,5 @@ if __name__ == "__main__":
     for i in dfs_setup_config:
         print(i, dfs_setup_config[i], sep=':')
     print("<---DFS COMMAND LINE--->")
-    master()
+    start_cli(dfs_setup_config)
     exit(0)
