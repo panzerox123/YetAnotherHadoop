@@ -1,9 +1,6 @@
 from io import SEEK_SET, FileIO
+import os
 
-
-with open("test.txt", 'a') as f:
-            f.seek(0)
-            f.seek(10)
-            print(f.tell())
-            f.write("THE NEW GODDAMN DATA")
-            f.close()
+def writer(datanode, block, data):
+    with open(os.path.join(datanode, block), 'w') as f:
+                f.write(data)
