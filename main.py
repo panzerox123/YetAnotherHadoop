@@ -58,6 +58,9 @@ class IPC_Pathways():
         if(message[0] == 100):
             print("Primary namenode started")
             return 100
+        elif(message[0] == 101):
+            print("Primary namenode cannot access Namenode configuration. Use the 'format' command to format the namenode.")
+            return 101
         elif(message[0] == 102):
             print("Primary namenode ready to Sync with Secondary namenode")
             self.PNNReady = True
@@ -79,6 +82,9 @@ class IPC_Pathways():
             self.SNN.start()
         else:
             return 1
+
+    def formatNamenode(self):
+        self.sendMsg(self.pnnQueue, self.pnnLock, [101, None])
 
     def stopAllNodes(self):
         print("Stopping Secondary namenode")
@@ -137,6 +143,8 @@ def cli(ipc):
         if cmd.strip().lower() == 'exit':
             ipc.stopAllNodes()
             exit(0)
+        if cmd.strip().lower() == 'format':
+            ipc.formatNamenode()
     
 
 def main_loop(config):

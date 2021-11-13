@@ -1,5 +1,5 @@
 #100 namenode init successful
-#101 config file received by namenode (removed)
+#101 namenode json missing/unreadable or 'format' call from main
 #102 namenode SNNSync thread initiated correctly
 #103 Heartbeat
 #200 Secondary namenode init successful

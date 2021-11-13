@@ -27,28 +27,35 @@ class PrimaryNameNode:
         self.snnQueue = snnQueue
         self.snnLock = snnLock
         self.config = config
+        self.namenode_json_path = os.path.join(self.config["path_to_namenodes"], "namenode.json")
+        try:
+            namenode_json_file = open(self.namenode_json_path, 'r')
+            self.namenode_config = json.load(namenode_json_file)
+            namenode_json_file.close()
+        except:
+            self.sendMsg(mQueue, mLock, [101, None])
+            self.namenode_config = None
         self.SNNSyncThread = threading.Thread(target = self.SNNSync)
         self.SNNSyncThread.start()
 
     def format_namenode(self):
         dn_paths = []
-        for i in self.config["num_datanodes"]:
+        for i in range(self.config["num_datanodes"]):
             dn_path = os.path.join(self.config['path_to_datanodes'],str(i))
             dn_paths.append(dn_path)
         for i in dn_paths:
             shutil.rmtree(i, ignore_errors=True)
         for i in dn_paths:
             os.mkdir(i)
-        primary_namenode_json = {
+        self.namenode_config = {
             "block_size": self.config["block_size"],
             "datanode_size": self.config["datanode_size"],
             "num_datanodes": self.config["num_datanodes"],
             "datanode_paths": dn_paths,
             "fs_root": {}
         }
-        namenode_json_path = os.path.join(self.config["path_to_namenodes"], "namenode.json")
-        namenode_json_file = open(namenode_json_path, 'w')
-        json.dump(primary_namenode_thread, namenode_json_file)
+        namenode_json_file = open(self.namenode_json_path, 'w')
+        json.dump(self.namenode_config, namenode_json_file)
         namenode_json_file.close()
 
 
@@ -70,6 +77,9 @@ class PrimaryNameNode:
             self.pnnLoopRunning = False
             self.SNNSyncThread.join()
             return 0
+        elif(message[0] == 101):
+            self.format_namenode()
+            return 101
         elif(message[0] == 100):
             self.sendMsg(self.mQueue, self.mLock, [100, None])
             return 100
