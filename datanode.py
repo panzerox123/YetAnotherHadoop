@@ -2,6 +2,7 @@ import os
 import fileinput
 
 def updateLog(log, datanode, block, action):
+    log = log + "/datanode"+datanode[-1]
     with open(log, "r") as f:
         contents = f.readlines()
         f.close()
@@ -20,3 +21,9 @@ def writer(datanode, block, data, log):
                 f.write(data)
                 f.close()
     updateLog(log, datanode, block, 1)
+
+
+def createNodes(path, num):
+    for i in range(num):
+        os.mkdir(path+"/datanode"+str(i+1))
+
