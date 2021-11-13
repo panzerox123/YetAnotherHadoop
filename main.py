@@ -3,6 +3,14 @@ import sys
 import os
 import multiprocessing
 import namenode
+import threading
+import time
+import secondarynn
+
+config = None
+NNReady = False
+SNNReady = False
+Exit = 0
 
 def create_dfs():
     config_path = input("Enter path for configuration file: ")
@@ -38,17 +46,47 @@ def create_dfs():
 
 def master():
     
-    MainNamenodeQueue = multiprocessing.Queue()
-    MainNamenodeLock = multiprocessing.Lock()
-    Namenode = multiprocessing.Process(target=namenode.master, args=((MainNamenodeQueue), MainNamenodeLock))
-    Namenode.start()
+    MQueue = multiprocessing.SimpleQueue()
+    MLock = multiprocessing.Lock()
 
-    cli(MainNamenodeQueue, MainNamenodeLock)
+    NNQueue = multiprocessing.SimpleQueue()
+    NNLock = multiprocessing.Lock()
     
-    Namenode.join()
+    SNNQueue = multiprocessing.SimpleQueue()
+    SNNLock = multiprocessing.Lock()
+
+    NN = multiprocessing.Process(target=namenode.master, args=(MQueue, MLock, NNQueue, NNLock, SNNQueue, SNNLock))
+    NN.start()
+
+    sendMsg(NNQueue, NNLock, [100, None])
+    sendMsg(NNQueue, NNLock, [101, dfs_setup_config])
+
+    SNN = multiprocessing.Process(target=secondarynn.master, args=(MQueue, MLock, NNQueue, NNLock, SNNQueue, SNNLock))
+    SNN.start()
+
+    sendMsg(SNNQueue, SNNLock, [200, None])
+    sendMsg(SNNQueue, SNNLock, [201, dfs_setup_config])
+
+    MReceiver = threading.Thread(target = Receiver, args = (NNQueue, NNLock, SNNQueue, SNNLock, MQueue, MLock))
+    MReceiver.start()
+
+    while(NNReady == False and SNNReady == False):
+        continue
+    
+    cli(NNQueue, NNLock, SNNQueue, SNNLock)
+    
+    MReceiver.join()
+    NN.join()
+    SNN.join()
+
+def Receiver(NNQueue, NNLock, SNNQueue, SNNLock, MQueue, MLock):
+    
+    while(Exit != 1):
+        receiveMsg(MQueue, MLock)
 
 def sendMsg(Queue, Lock, Data):
     
+    print("Main sent", Data[0])
     Lock.acquire(block = True)
     Queue.put(Data)
     Lock.release()
@@ -57,42 +95,60 @@ def receiveMsg(Queue, Lock):
     
     Lock.acquire(block = True)
 
-    while(Queue.empty() != True):
-        Message = Queue.get()
+    Message = [1, None]
+    
+    if(Queue.empty() != True):
         
-        if(Message == 0):
-            break
-        else:
-            print(Message)
-
+        Message = Queue.get()
+        print("Main rcvd", Message[0])
+    
     Lock.release()
 
-    if(Message == 0):
+    if(Message[0] == 0):
         return 0
+    if(Message[0] == 100):
+        print("Primary namenode started")
+        return 100
+    elif(Message[0] == 102):
+        print("Primary namenode ready to Sync with Secondary namenode")
+        global NNReady
+        NNReady = True
+        return 102
+    elif(Message[0] == 103):
+        return 103
+    elif(Message[0] == 200):
+        print("Secondary namenode started")
+        return 200
+    elif(Message[0] == 202):
+        print("Secondary namenode ready to Sync with Primary namenode")
+        global SNNReady
+        SNNReady = True
+        return 202
     else:
         return 1
 
-def stopAllNodes(NamenodeQueue, NamenodeLock):
+def stopAllNodes(NNQueue, NNLock, SNNQueue, SNNLock):
     
-    sendMsg(NamenodeQueue, NamenodeLock, 0)
-    print("Stopping NameNodes")
+    sendMsg(NNQueue, NNLock, [0, None])
+    print("Stopping namenodes")
+    sendMsg(SNNQueue, SNNLock, [0, None])
+    print("Stopping Secondary namenode")
     
 
-def cli(NamenodeQueue, NamenodeLock):
-    
-    sendMsg(NamenodeQueue, NamenodeLock, 1)
+def cli(NNQueue, NNLock, SNNQueue, SNNLock):
 
     while True:
         cmd = input(">")
         if cmd.strip().lower() == 'exit':
-            stopAllNodes(NamenodeQueue, NamenodeLock)
+            global Exit
+            Exit = 1
+            stopAllNodes(NNQueue, NNLock, SNNQueue, SNNLock)
             break
     
 if __name__ == "__main__":
     try:
         dfs_setup_config_path = os.path.expandvars(sys.argv[1])
         dfs_setup_config_file = open(dfs_setup_config_path, 'r')
-        global dfs_setup_config
         dfs_setup_config = json.load(dfs_setup_config_file)
         dfs_setup_config_file.close()
         cache_file = open('./cache_file', 'w')
