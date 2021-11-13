@@ -1,0 +1,9 @@
+#100 namenode init successful
+#101 config file received by namenode
+#102 namenode SNNSync thread initiated correctly
+#103 Heartbeat
+#200 Secondary namenode init successful
+#201 config file received by Secondary namenode
+#202 Secondary namenode SNNSync thread initiated correctly
+#203 heartbeat
+#204 heartbeat failed

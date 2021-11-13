@@ -4,8 +4,9 @@ import time
 import threading
 
 config = None
-Exit = 0
 
+heartbeat = 0
+Exit = 0
 MB=1000000
 
 def convert_to_blocks(file_name,block_size):
@@ -19,7 +20,7 @@ def convert_to_blocks(file_name,block_size):
 
 def sendMsg(Queue, Lock, Data):
     
-    print("namenode sent", Data[0])
+    print("secondary namenode sent", Data[0])
     Lock.acquire(block = True)
     Queue.put(Data)
     Lock.release()
@@ -33,33 +34,37 @@ def receiveMsg(Queue, Lock):
         if(Queue.empty() != True):
             
             Message = Queue.get()
-            print("namenode rcvd", Message[0])
+            print("Secondary namenode rcvd", Message[0])
         
         Lock.release()
 
         if(Message[0] == 0):
             return 0
-        elif(Message[0] == 100):
-            return 100
-        elif(Message[0] == 101):
+        elif(Message[0] == 200):
+            return 200
+        elif(Message[0] == 201):
             global config
             config = Message[1]
-            return 101
+            return 201
+        elif(Message[0] == 203):
+            heartbeat = 1
+            return 203
         else:
             return 1
-    
     else:
         return 1
 
 def master(MQueue, MLock, NNQueue, NNLock, SNNQueue, SNNLock):
     
+    Code = 1
+
     while(Exit != 1):
         
-        Code = receiveMsg(NNQueue, NNLock)
-
-        if(Code == 100):
-            sendMsg(MQueue, MLock, [100, None])
-        elif(Code == 101):
+        Code = receiveMsg(SNNQueue, SNNLock)
+        
+        if(Code == 200):
+            sendMsg(MQueue, MLock, [200, None])
+        elif(Code == 201):
             SecondaryNNSync = threading.Thread(target = SNNSync, args = (MQueue, MLock, SNNQueue, SNNLock))
             SecondaryNNSync.start()
         elif(Code == 0):
@@ -67,8 +72,27 @@ def master(MQueue, MLock, NNQueue, NNLock, SNNQueue, SNNLock):
 
 def SNNSync(MQueue, MLock, SNNQueue, SNNLock):
 
-    sendMsg(MQueue, MLock, [102, None])
+    sendMsg(MQueue, MLock, [202, None])
+    heartbeat = 1
 
     while(Exit != 1):
-        sendMsg(SNNQueue, SNNLock, [103, None])
+        if(heartbeat == 1):
+            heartbeat = 0
+            print("heartbeat received")
+        else:
+            time.sleep(config["sync_period"] * 0.5)
+            
+            if(heartbeat == 1):
+                heartbeat = 0
+                print("heartbeat received")
+            else:
+                sendMsg(MQueue, MLock, [204, None])
+                break
+
         time.sleep(config["sync_period"])
+    
+    if(Exit != 0):
+        masterNameNode(MQueue, MLock, SNNQueue, SNNLock)
+
+def masterNameNode(MainQueue, MainLock):
+    pass
