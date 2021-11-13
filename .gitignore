@@ -1,4 +1,6 @@
 *.json
+__pycache__/
+*.py[cod]
 cache_file
 config.json
 DataNodeLog
@@ -6,4 +8,3 @@ DataNodes
 NameNode
 NameNodeCPts
 NameNodeLog
-__pycache__
