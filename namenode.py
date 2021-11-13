@@ -2,6 +2,9 @@ import math
 import sys
 import time
 import threading
+import json
+import os
+import shutil
 
 MB=1000000
 
@@ -26,6 +29,28 @@ class PrimaryNameNode:
         self.config = config
         self.SNNSyncThread = threading.Thread(target = self.SNNSync)
         self.SNNSyncThread.start()
+
+    def format_namenode(self):
+        dn_paths = []
+        for i in self.config["num_datanodes"]:
+            dn_path = os.path.join(self.config['path_to_datanodes'],str(i))
+            dn_paths.append(dn_path)
+        for i in dn_paths:
+            shutil.rmtree(i, ignore_errors=True)
+        for i in dn_paths:
+            os.mkdir(i)
+        primary_namenode_json = {
+            "block_size": self.config["block_size"],
+            "datanode_size": self.config["datanode_size"],
+            "num_datanodes": self.config["num_datanodes"],
+            "datanode_paths": dn_paths,
+            "fs_root": {}
+        }
+        namenode_json_path = os.path.join(self.config["path_to_namenodes"], "namenode.json")
+        namenode_json_file = open(namenode_json_path, 'w')
+        json.dump(primary_namenode_thread, namenode_json_file)
+        namenode_json_file.close()
+
 
     def sendMsg(self, queue, lock, data):
         print("namenode sent", data[0])
