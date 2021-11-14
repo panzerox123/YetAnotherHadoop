@@ -93,9 +93,11 @@ class PrimaryNameNode:
 
     def SNNSync(self):
         self.sendMsg(self.mQueue, self.mLock, [102, None])
-        while(self.pnnLoopRunning):
-            self.sendMsg(self.snnQueue, self.snnLock, [103, None])
-            time.sleep(self.config["sync_period"])
+        timeout=time.time()+self.config['sync_period']
+        while True:
+            if(time.time()>timeout):
+                self.sendMsg(self.snnQueue, self.snnLock, [103, None])
+                timeout=time.time()+self.config['sync_period']
         exit(0)
 
 class SecondaryNameNode():
@@ -149,19 +151,25 @@ class SecondaryNameNode():
 
     def PNNSync(self):
         self.sendMsg(self.mQueue, self.mLock, [202, None])
-        self.heartbeat = 1
-        while(self.snnLoopRunning):
-            if(self.heartbeat == 1):
-                self.heartbeat = 0
-                print("heartbeat received")
-            else:
-                time.sleep(self.config["sync_period"] * 0.5)
-                if(self.heartbeat == 1):
+        timeout=time.time()+self.config['sync_period']
+        while True:
+            if(time.time()>timeout):
+                tt=time.time()+self.config['sync_period']*0.5
+                if(self.heartbeat==1):
                     self.heartbeat = 0
                     print("heartbeat received")
-                else:
+                    self.snnLoopRunning=False
                     break
-            time.sleep(self.config["sync_period"])
+                while True:
+                    if(time.time()>tt):
+                        if(self.heartbeat == 1):
+                            self.heartbeat = 0
+                            self.snnLoopRunning=False
+                            print("heartbeat received")
+                        else:
+                            break
+                if(self.snnLoopRunning):
+                    break
         if(self.snnLoopRunning):
             self.name_node_crash = True
         exit(0)
@@ -174,23 +182,6 @@ def secondary_namenode_thread(mQueue, mLock, pnnQueue, pnnLock, snnQueue, snnLoc
         if(snn.pnnCrashStatus()):
             primary_namenode_thread(mQueue, mLock, pnnQueue, pnnLock, snnQueue, snnLock, config)
     exit(0)
-
-#Initializing namenode json file
-
-def init_json(fs_name):
-    data={}
-    data[fs_name]=[]
-    with open('namenode.json','w') as f:
-        json.dump(data,f)
-
-#Infinite loop part (Don't uncomment)
-
-# timeout=time.time()+60*3
-
-# while True:
-#     if(time.time()>timeout):
-#         timeout=time.time()+60*3
-#         break
 
 
 def primary_namenode_thread(mQueue, mLock, pnnQueue, pnnLock, snnQueue, snnLock, config):
