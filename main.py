@@ -85,6 +85,15 @@ class IPC_Pathways():
 
     def formatNamenode(self):
         self.sendMsg(self.pnnQueue, self.pnnLock, [101, None])
+    
+    def mkdir(self, path):
+        self.sendMsg(self.pnnQueue, self.pnnLock, [104, path])
+    
+    def mkdir_parent(self, path):
+        self.sendMsg(self.pnnQueue, self.pnnLock, [105, path])
+    
+    def rmdir(self, path):
+        self.sendMsg(self.pnnQueue, self.pnnLock, [106, path])
 
     def stopAllNodes(self):
         print("Stopping Secondary namenode")
@@ -145,6 +154,12 @@ def cli(ipc):
             exit(0)
         if cmd.strip().lower() == 'format':
             ipc.formatNamenode()
+        command = cmd.split()
+        if command[0].strip() == 'mkdir':
+            if(command[1].strip == '-p'):
+                pass
+            else:
+                ipc.mkdir(command[1].strip())
     
 
 def main_loop(config):

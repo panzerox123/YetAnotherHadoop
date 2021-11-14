@@ -45,8 +45,12 @@ class PrimaryNameNode:
 
     def format_namenode(self):
         dn_paths = []
+        dn_remaining = []
+        dn_status = []
         for i in range(self.config["num_datanodes"]):
             dn_path = os.path.join(self.config['path_to_datanodes'],str(i))
+            dn_status.append('idle')
+            dn_remaining.append(self.config['datanode_size'])
             dn_paths.append(dn_path)
         for i in dn_paths:
             shutil.rmtree(i, ignore_errors=True)
@@ -57,12 +61,31 @@ class PrimaryNameNode:
             "datanode_size": self.config["datanode_size"],
             "num_datanodes": self.config["num_datanodes"],
             "datanode_paths": dn_paths,
-            "fs_root": {}
+            "datanode_status" : dn_status,
+            "datanode_remaining" : dn_remaining,
+            "fs_root": {
+                "type" : "dir",
+                "data" : {}
+            }
         }
         namenode_json_file = open(self.namenode_json_path, 'w')
         json.dump(self.namenode_config, namenode_json_file)
         namenode_json_file.close()
 
+
+    def dumpNameNode(self):
+        namenode_json_file = open(self.namenode_json_path, 'w')
+        json.dump(self.namenode_config, namenode_json_file)
+        namenode_json_file.close()
+
+    def mkdir(self, path):
+        pass
+
+    def mkdir_parent(self, path):
+        pass
+
+    def rmdir(self, path):
+        pass
 
     def sendMsg(self, queue, lock, data):
         print("namenode sent", data[0])
