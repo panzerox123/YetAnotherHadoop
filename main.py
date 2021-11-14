@@ -4,13 +4,107 @@ import os
 import multiprocessing
 import namenode
 import threading
-import time
-import secondarynn
 
-config = None
-NNReady = False
-SNNReady = False
-Exit = 0
+class IPC_Pathways():
+    def __init__(self, config):
+        self.config = config
+        self.mainReceiverLoop = True
+        self.mQueue = multiprocessing.SimpleQueue()
+        self.mLock = multiprocessing.Lock()
+
+        self.pnnQueue = multiprocessing.SimpleQueue()
+        self.pnnLock = multiprocessing.Lock()
+        
+        self.snnQueue = multiprocessing.SimpleQueue()
+        self.snnLock = multiprocessing.Lock()
+
+        self.PNN = multiprocessing.Process(target=namenode.primary_namenode_thread, args=(self.mQueue, self.mLock, self.pnnQueue, self.pnnLock, self.snnQueue, self.snnLock, self.config))
+        self.PNN.start()
+        self.sendMsg(self.pnnQueue, self.pnnLock, [100, None])
+
+        self.SNN = multiprocessing.Process(target=namenode.secondary_namenode_thread, args=(self.mQueue, self.mLock, self.pnnQueue, self.pnnLock, self.snnQueue, self.snnLock, self.config))
+        self.SNN.start()
+
+        self.sendMsg(self.snnQueue, self.snnLock, [200, None])
+
+        self.mainReceiver = threading.Thread(target = self.reciever)
+        self.mainReceiver.start()
+
+        self.PNNReady = False
+        self.SNNReady = False
+
+        while(self.PNNReady == False and self.SNNReady == False):
+            continue
+        
+    def reciever(self):
+        while(self.mainReceiverLoop):
+            self.receiveMsg()
+
+    def sendMsg(self, queue, lock, data):
+        print("Main sent", data[0])
+        lock.acquire(block = True)
+        queue.put(data)
+        lock.release()
+
+    def receiveMsg(self):
+        self.mLock.acquire(block = True)
+        message = [1, None]
+        if(not self.mQueue.empty()):
+            message = self.mQueue.get()
+            print("Main rcvd", message[0])
+        self.mLock.release()
+        if(message[0] == 0):
+            return 0
+        if(message[0] == 100):
+            print("Primary namenode started")
+            return 100
+        elif(message[0] == 101):
+            print("Primary namenode cannot access Namenode configuration. Use the 'format' command to format the namenode.")
+            return 101
+        elif(message[0] == 102):
+            print("Primary namenode ready to Sync with Secondary namenode")
+            self.PNNReady = True
+            return 102
+        elif(message[0] == 103):
+            return 103
+        elif(message[0] == 200):
+            print("Secondary namenode started")
+            return 200
+        elif(message[0] == 202):
+            print("Secondary namenode ready to Sync with Primary namenode")
+            self.SNNReady = True
+            return 202
+        elif(message[0] == 204):
+            self.PNNReady = False
+            self.SNNReady = False
+            self.sendMsg(self.pnnQueue, self.pnnLock, [100, None])
+            self.SNN = multiprocessing.Process(target=namenode.secondary_namenode_thread, args=(self.mQueue, self.mLock, self.pnnQueue, self.pnnLock, self.snnQueue, self.snnLock, self.config))
+            self.SNN.start()
+        else:
+            return 1
+
+    def formatNamenode(self):
+        self.sendMsg(self.pnnQueue, self.pnnLock, [101, None])
+    
+    def mkdir(self, path):
+        self.sendMsg(self.pnnQueue, self.pnnLock, [104, path])
+    
+    def mkdir_parent(self, path):
+        self.sendMsg(self.pnnQueue, self.pnnLock, [105, path])
+    
+    def rmdir(self, path):
+        self.sendMsg(self.pnnQueue, self.pnnLock, [106, path])
+
+    def stopAllNodes(self):
+        print("Stopping Secondary namenode")
+        self.sendMsg(self.snnQueue, self.snnLock, [0, None])
+        self.SNN.join()
+        print("Stopping Primary namenode")
+        self.sendMsg(self.pnnQueue, self.pnnLock, [0, None])
+        self.PNN.join()
+        self.mainReceiverLoop = False
+        self.mainReceiver.join()
+    
 
 def create_dfs():
     config_path = input("Enter path for configuration file: ")
@@ -25,6 +119,14 @@ def create_dfs():
         print("Configuration file not formatted correctly")
         exit(-1)
     try:
+        config['path_to_datanodes'] = os.path.expandvars(config['path_to_datanodes'])
+        config['path_to_namenodes'] = os.path.expandvars(config['path_to_namenodes'])
+        config['datanode_log_path'] = os.path.expandvars(config['datanode_log_path'])
+        config['namenode_log_path'] = os.path.expandvars(config['namenode_log_path'])
+        config['dfs_setup_config'] = os.path.expandvars(config['dfs_setup_config'])
+        config['dfs_setup_config'] = os.path.expandvars(config['dfs_setup_config'])
+        config['fs_path'] = os.path.expandvars(config['fs_path'])
+        config['namenode_checkpoints'] = os.path.expandvars(config['namenode_checkpoints'])
         os.makedirs(os.path.expandvars(config['path_to_datanodes']), exist_ok=True)
         os.makedirs(os.path.expandvars(config['path_to_namenodes']), exist_ok=True)
         os.makedirs(os.path.expandvars(config['datanode_log_path']), exist_ok=True)
@@ -44,107 +146,26 @@ def create_dfs():
         exit(-1)
     exit(0)
 
-def master():
-    
-    MQueue = multiprocessing.SimpleQueue()
-    MLock = multiprocessing.Lock()
-
-    NNQueue = multiprocessing.SimpleQueue()
-    NNLock = multiprocessing.Lock()
-    
-    SNNQueue = multiprocessing.SimpleQueue()
-    SNNLock = multiprocessing.Lock()
-
-    NN = multiprocessing.Process(target=namenode.master, args=(MQueue, MLock, NNQueue, NNLock, SNNQueue, SNNLock))
-    NN.start()
-
-    sendMsg(NNQueue, NNLock, [100, None])
-    sendMsg(NNQueue, NNLock, [101, dfs_setup_config])
-
-    SNN = multiprocessing.Process(target=secondarynn.master, args=(MQueue, MLock, NNQueue, NNLock, SNNQueue, SNNLock))
-    SNN.start()
-
-    sendMsg(SNNQueue, SNNLock, [200, None])
-    sendMsg(SNNQueue, SNNLock, [201, dfs_setup_config])
-
-    MReceiver = threading.Thread(target = Receiver, args = (NNQueue, NNLock, SNNQueue, SNNLock, MQueue, MLock))
-    MReceiver.start()
-
-    while(NNReady == False and SNNReady == False):
-        continue
-    
-    cli(NNQueue, NNLock, SNNQueue, SNNLock)
-    
-    MReceiver.join()
-    NN.join()
-    SNN.join()
-
-def Receiver(NNQueue, NNLock, SNNQueue, SNNLock, MQueue, MLock):
-    
-    while(Exit != 1):
-        receiveMsg(MQueue, MLock)
-
-def sendMsg(Queue, Lock, Data):
-    
-    print("Main sent", Data[0])
-    Lock.acquire(block = True)
-    Queue.put(Data)
-    Lock.release()
-
-def receiveMsg(Queue, Lock):
-    
-    Lock.acquire(block = True)
-
-    Message = [1, None]
-    
-    if(Queue.empty() != True):
-        
-        Message = Queue.get()
-        print("Main rcvd", Message[0])
-    
-    Lock.release()
-
-    if(Message[0] == 0):
-        return 0
-    if(Message[0] == 100):
-        print("Primary namenode started")
-        return 100
-    elif(Message[0] == 102):
-        print("Primary namenode ready to Sync with Secondary namenode")
-        global NNReady
-        NNReady = True
-        return 102
-    elif(Message[0] == 103):
-        return 103
-    elif(Message[0] == 200):
-        print("Secondary namenode started")
-        return 200
-    elif(Message[0] == 202):
-        print("Secondary namenode ready to Sync with Primary namenode")
-        global SNNReady
-        SNNReady = True
-        return 202
-    else:
-        return 1
-
-def stopAllNodes(NNQueue, NNLock, SNNQueue, SNNLock):
-    
-    sendMsg(NNQueue, NNLock, [0, None])
-    print("Stopping namenodes")
-    sendMsg(SNNQueue, SNNLock, [0, None])
-    print("Stopping Secondary namenode")
-    
-
-def cli(NNQueue, NNLock, SNNQueue, SNNLock):
-
+def cli(ipc):
     while True:
         cmd = input(">")
         if cmd.strip().lower() == 'exit':
-            global Exit
-            Exit = 1
-            stopAllNodes(NNQueue, NNLock, SNNQueue, SNNLock)
-            break
+            ipc.stopAllNodes()
+            exit(0)
+        if cmd.strip().lower() == 'format':
+            ipc.formatNamenode()
+        command = cmd.split()
+        if command[0].strip() == 'mkdir':
+            if(command[1].strip == '-p'):
+                pass
+            else:
+                ipc.mkdir(command[1].strip())
     
+
+def main_loop(config):
+    ipc = IPC_Pathways(config)
+    cli(ipc)
+
 if __name__ == "__main__":
     try:
         dfs_setup_config_path = os.path.expandvars(sys.argv[1])
@@ -180,5 +201,5 @@ if __name__ == "__main__":
     for i in dfs_setup_config:
         print(i, dfs_setup_config[i], sep=':')
     print("<---DFS COMMAND LINE--->")
-    master()
+    main_loop(dfs_setup_config)
     exit(0)
