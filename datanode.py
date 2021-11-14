@@ -25,5 +25,4 @@ def writer(datanode, block, data, log):
 
 def createNodes(path, num):
     for i in range(num):
-        os.mkdir(path+"/datanode"+str(i+1))
-
+        os.makedirs(os.path.expandvars(path+"/datanode"+str(i+1)))
