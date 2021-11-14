@@ -155,11 +155,14 @@ def cli(ipc):
         if cmd.strip().lower() == 'format':
             ipc.formatNamenode()
         command = cmd.split()
-        if command[0].strip() == 'mkdir':
-            if(command[1].strip == '-p'):
-                pass
-            else:
-                ipc.mkdir(command[1].strip())
+        try:
+            if command[0].strip() == 'mkdir':
+                if(command[1].strip == '-p'):
+                    pass
+                else:
+                    ipc.mkdir(command[1].strip())
+        except IndexError:
+            continue
     
 
 def main_loop(config):

@@ -117,7 +117,7 @@ class PrimaryNameNode:
     def SNNSync(self):
         self.sendMsg(self.mQueue, self.mLock, [102, None])
         timeout=time.time()+self.config['sync_period']
-        while True:
+        while self.pnnLoopRunning:
             if(time.time()>timeout):
                 self.sendMsg(self.snnQueue, self.snnLock, [103, None])
                 timeout=time.time()+self.config['sync_period']
@@ -175,7 +175,7 @@ class SecondaryNameNode():
     def PNNSync(self):
         self.sendMsg(self.mQueue, self.mLock, [202, None])
         timeout=time.time()+self.config['sync_period']
-        while True:
+        while self.snnLoopRunning:
             if(time.time()>timeout):
                 tt=time.time()+self.config['sync_period']*0.5
                 if(self.heartbeat==1):
