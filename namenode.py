@@ -143,6 +143,17 @@ class PrimaryNameNode:
         lock.acquire(block = True)
         queue.put(data)
         lock.release()
+    
+    def ls_recur(self, curr, path):
+        print(path)
+        for i in curr['data']:
+            if curr['data'][i]['type'] == 'file':
+                print(path+i)
+            elif curr['data'][i]['type'] == 'dir':
+                self.ls_recur(curr['data'][i], path+i+'/')
+        
+    def ls(self):
+        self.ls_recur(self.namenode_config['fs_root'], '/')
 
     def receiveMsg(self, queue, lock):
         lock.acquire(block = True)
@@ -171,6 +182,9 @@ class PrimaryNameNode:
         elif(message[0] == 106):
             self.rmdir(message[1])
             return 106
+        elif(message[0] == 107):
+            self.ls()
+            return 107
         else:
             return 1
 
