@@ -78,8 +78,22 @@ class PrimaryNameNode:
         json.dump(self.namenode_config, namenode_json_file)
         namenode_json_file.close()
 
+    def mkdir_recur(self, folder_arr, curr, parent=True) -> dict:
+        if len(folder_arr > 0):
+            curr[folder_arr[0]] = {
+                "type" : 'dir',
+                "data" : {}
+            }
+            curr[folder_arr[0]]['data'] = self.mkdir_recur(folder_arr[1:], curr[folder_arr[0]]['data'], parent)
+            return curr
+        else:
+            return {}
+
+
     def mkdir(self, path):
-        pass
+        folders = path.split('/')
+        self.namenode_config['fs_root']['data'] = self.mkdir_recur(folders[1:], False)
+        self.dumpNameNode()
 
     def mkdir_parent(self, path):
         pass
