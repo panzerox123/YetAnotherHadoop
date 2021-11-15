@@ -79,7 +79,7 @@ class PrimaryNameNode:
         namenode_json_file.close()
 
     def mkdir_recur(self, folder_arr, curr, parent=True) -> dict:
-        if len(folder_arr > 0):
+        if len(folder_arr) > 0:
             curr[folder_arr[0]] = {
                 "type" : 'dir',
                 "data" : {}
@@ -91,8 +91,10 @@ class PrimaryNameNode:
 
 
     def mkdir(self, path):
+        print(path)
         folders = path.split('/')
-        self.namenode_config['fs_root']['data'] = self.mkdir_recur(folders[1:], False)
+        print(folders)
+        self.namenode_config['fs_root']['data'] = self.mkdir_recur(folders[1:], self.namenode_config['fs_root']['data'], False)
         self.dumpNameNode()
 
     def mkdir_parent(self, path):
@@ -125,6 +127,9 @@ class PrimaryNameNode:
         elif(message[0] == 100):
             self.sendMsg(self.mQueue, self.mLock, [100, None])
             return 100
+        elif(message[0] == 104):
+            self.mkdir(message[1])
+            return 104
         else:
             return 1
 
