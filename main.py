@@ -94,6 +94,9 @@ class IPC_Pathways():
     
     def rmdir(self, path):
         self.sendMsg(self.pnnQueue, self.pnnLock, [106, path])
+    
+    def ls(self):
+        self.sendMsg(self.pnnQueue, self.pnnLock, [107, None])
 
     def stopAllNodes(self):
         print("Stopping Secondary namenode")
@@ -155,11 +158,18 @@ def cli(ipc):
         if cmd.strip().lower() == 'format':
             ipc.formatNamenode()
         command = cmd.split()
-        if command[0].strip() == 'mkdir':
-            if(command[1].strip == '-p'):
-                pass
-            else:
-                ipc.mkdir(command[1].strip())
+        try:
+            if command[0].strip() == 'mkdir':
+                if(command[1].strip == '-p'):
+                    ipc.mkdir_parent(command[1].strip())
+                else:
+                    ipc.mkdir(command[1].strip())
+            elif command[0].strip() == 'rmdir':
+                ipc.rmdir(command[1].strip())
+            elif command[0].strip() == 'ls':
+                ipc.ls()
+        except IndexError:
+            continue
     
 
 def main_loop(config):

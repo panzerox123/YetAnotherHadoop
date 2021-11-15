@@ -2,6 +2,7 @@ import math
 import sys
 import time
 import json
+from typing import Pattern
 from fsplit.filesplit import Filesplit
 import threading
 import json
@@ -78,20 +79,81 @@ class PrimaryNameNode:
         json.dump(self.namenode_config, namenode_json_file)
         namenode_json_file.close()
 
+    def mkdir_recur(self, folder_arr, curr, parent=True) -> dict:
+        if parent:
+            if len(folder_arr) > 1 and folder_arr[0] not in curr.keys():
+                raise FileNotFoundError
+        if len(folder_arr) > 0:
+            if folder_arr[0] not in curr.keys():
+                curr[folder_arr[0]] = {
+                    "type" : 'dir',
+                    "data" : {}
+                }
+            curr[folder_arr[0]]['data'] = self.mkdir_recur(folder_arr[1:], curr[folder_arr[0]]['data'], parent)
+            return curr
+        else:
+            return {}
+
+
     def mkdir(self, path):
-        pass
+        folders = path.split('/')
+        try:
+            self.namenode_config['fs_root']['data'] = self.mkdir_recur(folders[1:], self.namenode_config['fs_root']['data'], True)
+        except FileNotFoundError:
+            self.sendMsg(self.mQueue, self.mLock, [1041, None])
+            return
+        self.dumpNameNode()
+        self.sendMsg(self.mQueue, self.mLock, [1040, None])
 
     def mkdir_parent(self, path):
-        pass
+        folders = path.split('/')
+        try:
+            self.namenode_config['fs_root']['data'] = self.mkdir_recur(folders[1:], self.namenode_config['fs_root']['data'], False)
+        except FileNotFoundError:
+            self.sendMsg(self.mQueue, self.mLock, [1051, None])
+            return
+        self.dumpNameNode()
+        self.sendMsg(self.mQueue, self.mLock, [1050, None])
+
+    def rmdir_recur(self, folder_arr, curr):
+        if(len(folder_arr) > 1):
+            if(folder_arr[0] not in curr.keys()):
+                raise FileNotFoundError
+            else:
+                self.rmdir_recur(folder_arr[1:], curr[folder_arr[0]]['data'])
+        elif len(folder_arr) == 1:
+            if(folder_arr[0] not in curr.keys()):
+                raise FileNotFoundError
+            else:
+                if(curr[folder_arr[0]]['data'] == {}):
+                    del curr[folder_arr[0]]
 
     def rmdir(self, path):
-        pass
+        folders = path.split('/')
+        try:
+            self.rmdir_recur(folders[1:], self.namenode_config['fs_root']['data'])
+        except FileNotFoundError:
+            self.sendMsg(self.mQueue, self.mLock, [1061, None])
+            return
+        self.sendMsg(self.mQueue, self.mLock, [1060, None])
+        self.dumpNameNode()
 
     def sendMsg(self, queue, lock, data):
         print("namenode sent", data[0])
         lock.acquire(block = True)
         queue.put(data)
         lock.release()
+    
+    def ls_recur(self, curr, path):
+        print(path)
+        for i in curr['data']:
+            if curr['data'][i]['type'] == 'file':
+                print(path+i)
+            elif curr['data'][i]['type'] == 'dir':
+                self.ls_recur(curr['data'][i], path+i+'/')
+        
+    def ls(self):
+        self.ls_recur(self.namenode_config['fs_root'], '/')
 
     def receiveMsg(self, queue, lock):
         lock.acquire(block = True)
@@ -111,13 +173,25 @@ class PrimaryNameNode:
         elif(message[0] == 100):
             self.sendMsg(self.mQueue, self.mLock, [100, None])
             return 100
+        elif(message[0] == 104):
+            self.mkdir(message[1])
+            return 104
+        elif(message[0] == 105):
+            self.mkdir_parent(message[1])
+            return 105
+        elif(message[0] == 106):
+            self.rmdir(message[1])
+            return 106
+        elif(message[0] == 107):
+            self.ls()
+            return 107
         else:
             return 1
 
     def SNNSync(self):
         self.sendMsg(self.mQueue, self.mLock, [102, None])
         timeout=time.time()+self.config['sync_period']
-        while True:
+        while self.pnnLoopRunning:
             if(time.time()>timeout):
                 self.sendMsg(self.snnQueue, self.snnLock, [103, None])
                 timeout=time.time()+self.config['sync_period']
@@ -175,7 +249,7 @@ class SecondaryNameNode():
     def PNNSync(self):
         self.sendMsg(self.mQueue, self.mLock, [202, None])
         timeout=time.time()+self.config['sync_period']
-        while True:
+        while self.snnLoopRunning:
             if(time.time()>timeout):
                 tt=time.time()+self.config['sync_period']*0.5
                 if(self.heartbeat==1):
