@@ -158,9 +158,11 @@ def cli(ipc):
         try:
             if command[0].strip() == 'mkdir':
                 if(command[1].strip == '-p'):
-                    pass
+                    ipc.mkdir_parent(command[1].strip())
                 else:
                     ipc.mkdir(command[1].strip())
+            elif command[0].strip() == 'rmdir':
+                ipc.rmdir(command[1].strip())
         except IndexError:
             continue
     

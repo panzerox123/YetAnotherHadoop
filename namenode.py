@@ -2,6 +2,7 @@ import math
 import sys
 import time
 import json
+from typing import Pattern
 from fsplit.filesplit import Filesplit
 import threading
 import json
@@ -79,11 +80,15 @@ class PrimaryNameNode:
         namenode_json_file.close()
 
     def mkdir_recur(self, folder_arr, curr, parent=True) -> dict:
+        if parent:
+            if len(folder_arr) > 1 and folder_arr[0] not in curr.keys():
+                raise FileNotFoundError
         if len(folder_arr) > 0:
-            curr[folder_arr[0]] = {
-                "type" : 'dir',
-                "data" : {}
-            }
+            if folder_arr[0] not in curr.keys():
+                curr[folder_arr[0]] = {
+                    "type" : 'dir',
+                    "data" : {}
+                }
             curr[folder_arr[0]]['data'] = self.mkdir_recur(folder_arr[1:], curr[folder_arr[0]]['data'], parent)
             return curr
         else:
@@ -91,17 +96,47 @@ class PrimaryNameNode:
 
 
     def mkdir(self, path):
-        print(path)
         folders = path.split('/')
-        print(folders)
-        self.namenode_config['fs_root']['data'] = self.mkdir_recur(folders[1:], self.namenode_config['fs_root']['data'], False)
+        try:
+            self.namenode_config['fs_root']['data'] = self.mkdir_recur(folders[1:], self.namenode_config['fs_root']['data'], True)
+        except FileNotFoundError:
+            self.sendMsg(self.mQueue, self.mLock, [1041, None])
+            return
         self.dumpNameNode()
+        self.sendMsg(self.mQueue, self.mLock, [1040, None])
 
     def mkdir_parent(self, path):
-        pass
+        folders = path.split('/')
+        try:
+            self.namenode_config['fs_root']['data'] = self.mkdir_recur(folders[1:], self.namenode_config['fs_root']['data'], False)
+        except FileNotFoundError:
+            self.sendMsg(self.mQueue, self.mLock, [1051, None])
+            return
+        self.dumpNameNode()
+        self.sendMsg(self.mQueue, self.mLock, [1050, None])
+
+    def rmdir_recur(self, folder_arr, curr):
+        if(len(folder_arr) > 1):
+            if(folder_arr[0] not in curr.keys()):
+                raise FileNotFoundError
+            else:
+                self.rmdir_recur(folder_arr[1:], curr[folder_arr[0]]['data'])
+        elif len(folder_arr) == 1:
+            if(folder_arr[0] not in curr.keys()):
+                raise FileNotFoundError
+            else:
+                if(curr[folder_arr[0]]['data'] == {}):
+                    del curr[folder_arr[0]]
 
     def rmdir(self, path):
-        pass
+        folders = path.split('/')
+        try:
+            self.rmdir_recur(folders[1:], self.namenode_config['fs_root']['data'])
+        except FileNotFoundError:
+            self.sendMsg(self.mQueue, self.mLock, [1061, None])
+            return
+        self.sendMsg(self.mQueue, self.mLock, [1060, None])
+        self.dumpNameNode()
 
     def sendMsg(self, queue, lock, data):
         print("namenode sent", data[0])
@@ -130,6 +165,12 @@ class PrimaryNameNode:
         elif(message[0] == 104):
             self.mkdir(message[1])
             return 104
+        elif(message[0] == 105):
+            self.mkdir_parent(message[1])
+            return 105
+        elif(message[0] == 106):
+            self.rmdir(message[1])
+            return 106
         else:
             return 1
 
