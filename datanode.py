@@ -51,7 +51,7 @@ class Datanode:
         print(f"[*] Listening as {SERVER_HOST}:{self.SERVER_PORT}")
         
         client_socket, address = s.accept() 
-        self.server(client_socket)
+        self.server(client_socket, self.path)
         pass
 
     # def recieve files
@@ -59,7 +59,7 @@ class Datanode:
     # def update datanode log
     # def return status to namenode
 
-    def server(client_socket):
+    def server(self, client_socket, path):
         
         received = client_socket.recv(BUFFER_SIZE).decode()
         filename, filesize = received.split(SEPARATOR)
@@ -70,7 +70,7 @@ class Datanode:
         #filename can be the block number specified by the namenode since its keeping track anyway
         progress = tqdm.tqdm(range(filesize), f"Receiving {filename}", unit="B", unit_scale=True, unit_divisor=1024)
         while True:
-            with open(filename, "wb") as f:
+            with open(self.path+"/"+str(filename), "wb") as f:
                 while True:
                     bytes_read = client_socket.recv(BUFFER_SIZE)
                     if not bytes_read:   
