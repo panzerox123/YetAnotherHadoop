@@ -23,6 +23,39 @@ def get_tot_split(file_name,block_size): #contains the file split function
     # fs.merge(input_dir='out')
     return tot_splits
 
+'''
+dnIndex structure(Json)
+replication factor: 
+dn1: [0,1,0,1...n blocks]
+.
+.
+.
+'''
+#------
+'''
+virtual fs structure(Json)
+->Folder1 :
+[
+    ->F1a
+    ->F1b
+    .
+    .
+]
+->FileB
+.
+.
+'''
+#-------
+'''
+VFS map:
+        Block 1 replicated 3 times  Block 2 replicated
+F1a: [[(dn1,2),(dn2,3),(dn3,5)],    [(dn1,4),(dn2, 5), (dn3, 2)]]
+ 
+'''
+def writer(dnIndex, file):
+
+    pass
+
 class PrimaryNameNode:
     def __init__(self, mQueue, mLock, pnnQueue, pnnLock, snnQueue, snnLock, config):
         self.pnnLoopRunning = True

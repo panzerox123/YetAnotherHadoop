@@ -159,7 +159,10 @@ def cli(ipc):
             ipc.formatNamenode()
         command = cmd.split()
         try:
-            if command[0].strip() == 'mkdir':
+            if command[0].strip() == 'put':
+                #DO SOMETHING TO CALL THE PUT FUNCTION KUNAL
+                pass
+            elif command[0].strip() == 'mkdir':
                 if(command[1].strip == '-p'):
                     ipc.mkdir_parent(command[1].strip())
                 else:
