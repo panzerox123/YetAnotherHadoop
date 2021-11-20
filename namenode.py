@@ -203,16 +203,11 @@ class PrimaryNameNode:
     def ls(self):
         self.ls_recur(self.namenode_config['fs_root'], '/')
     
-    '''def get_tot_split(file_name,block_size): #contains the file split function
-    f=open(file_name,'rb')
-    tot_bytes=0
-    for l in f:
-        tot_bytes+=sys.getsizeof(l)
-    tot_mb=tot_bytes/MB
-    tot_splits=math.ceil(tot_mb/block_size)
-    # fs.split(file='trial\Trial.pdf',split_size=tot_bytes//tot_splits,output_dir='out')
-    # fs.merge(input_dir='out')
-    return tot_splits'''
+    '''
+    TODO
+    -send filename as block number for the datanode
+    -log datanode memory status and update the same in the blacklist field
+    '''
     def write(self, block, file, dn_num, dir):
         port = self.dn[dn_num].port
         self.sck.connect((host, port))
@@ -234,7 +229,6 @@ class PrimaryNameNode:
                 # update the progress bar
                 progress.update(len(bytes_read))
         
-
     def put(self, file):
 
         tot_bytes,tot = get_tot_split(file, self.namenode_config["block_size"])
@@ -254,8 +248,6 @@ class PrimaryNameNode:
                         dn_num = (dn_num + 1)%len(self.dnIndex["blacklist"])
                     self.write(i, file, dn_num, out)
 
-            pass
-        pass
 
     def receiveMsg(self, queue, lock):
         lock.acquire(block = True)
