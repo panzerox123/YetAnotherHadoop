@@ -27,7 +27,7 @@ def get_tot_split(file_name,block_size): #contains the file split function
     tot_splits=math.ceil(tot_mb/block_size)
     # fs.split(file='trial\Trial.pdf',split_size=tot_bytes//tot_splits,output_dir='out')
     # fs.merge(input_dir='out')
-    return tot_splits
+    return tot_bytes,tot_splits
 
 '''
 dnIndex structure(Json)
@@ -213,21 +213,46 @@ class PrimaryNameNode:
     # fs.split(file='trial\Trial.pdf',split_size=tot_bytes//tot_splits,output_dir='out')
     # fs.merge(input_dir='out')
     return tot_splits'''
+    def write(self, block, file, dn_num, dir):
+        port = self.dn[dn_num].port
+        self.sck.connect((host, port))
+        head, tail = os.path.split(file)
+        file = dir + tail[:tail.index(".")]+"_"+str(block)+tail[tail.index("."):]
+        self.sck.send(f"{file}{SEPARATOR}{os.path.getsize(file)}".encode())
+        progress = tqdm.tqdm(range(filesize), f"Sending {filename}", unit="B", unit_scale=True, unit_divisor=1024)
+        with open(file, "rb") as f:
+            while True:
+                # read the bytes from the file
+                bytes_read = f.read(BUFFER_SIZE)
+                if not bytes_read:
+                    # file transmitting is done
+                    break
+                # we use sendall to assure transimission in 
+                # busy networks
+                self.sck.sendall(bytes_read)
+                # update the progress bar
+                progress.update(len(bytes_read))
+        
+
     def put(self, file):
 
-        tot = get_tot_split(file, self.config["block_size"])
+        tot_bytes,tot = get_tot_split(file, self.namenode_config["block_size"])
         if((tot*self.config["replication_factor"])>self.dnIndex["tot_emp"]):
             print("Not enough space :D")
         else:
             '''
             going to write some stuff here
             '''
+            out = "/Users/utkarshgupta/Documents/DevWork/YetAnotherHadoop/out"
+            os.makedirs(os.path.expandvars(out), exist_ok=True)
+            fs.split(file=file,split_size=tot_bytes//tot,output_dir='out')
+            dn_num = 0
+            for i in range(tot):
+                for j in range(self.config["replication_factor"]):
+                    while(not self.dnIndex["blacklist"][dn_num]):
+                        dn_num = (dn_num + 1)%len(self.dnIndex["blacklist"])
+                    self.write(i, file, dn_num, out)
 
-
-            for i in self.dnIndex["blacklist"]:
-                if(not i):
-                
-                pass
             pass
         pass
 
