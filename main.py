@@ -4,9 +4,15 @@ import os
 import multiprocessing
 import namenode
 import threading
+import socket
 
 class IPC_Pathways():
     def __init__(self, config):
+        self.MAIN_PORT = 9898
+        self.main_server = socket.socket()
+        self.main_server.bind(('', self.MAIN_PORT))
+        self.main_server.listen(10)
+
         self.config = config
         self.mainReceiverLoop = True
         self.mQueue = multiprocessing.SimpleQueue()
@@ -36,9 +42,20 @@ class IPC_Pathways():
         while(self.PNNReady == False and self.SNNReady == False):
             continue
         
+    '''
     def reciever(self):
         while(self.mainReceiverLoop):
             self.receiveMsg()
+    '''
+
+    def reciever(self):
+        while self.mainReceiverLoop:
+            conn, addr = self.main_server.accept()
+            data = []
+            while True:
+                continue
+            conn.close()
+
 
     def sendMsg(self, queue, lock, data):
         print("Main sent", data[0])
