@@ -90,7 +90,7 @@ class PrimaryNameNode:
 
         self.SNNSyncThread = threading.Thread(target = self.SNNSync)
         self.SNNSyncThread.start()
-        self.s = socket.socket()
+        self.sck = socket.socket()
 
 
     def format_namenode(self):
