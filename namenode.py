@@ -82,13 +82,16 @@ class PrimaryNameNode:
         
         self.dnIndex = {
             "tot_emp": self.config["num_datanodes"]*self.config["datanode_size"],
-            "rep_factor": int(self.config["replication_factor"])
+            "rep_factor": int(self.config["replication_factor"]),
+            "blacklist": [0]*self.config["num_datanodes"]
         }
         for i in range(self.config["num_datanodes"]):
             self.dnIndex["dn"+str(i+1)] = [0]*self.config["datanode_size"]
 
         self.SNNSyncThread = threading.Thread(target = self.SNNSync)
         self.SNNSyncThread.start()
+        self.s = socket.socket()
+
 
     def format_namenode(self):
         dn_paths = []
@@ -200,9 +203,16 @@ class PrimaryNameNode:
     def ls(self):
         self.ls_recur(self.namenode_config['fs_root'], '/')
     
-    
- 
-    
+    '''def get_tot_split(file_name,block_size): #contains the file split function
+    f=open(file_name,'rb')
+    tot_bytes=0
+    for l in f:
+        tot_bytes+=sys.getsizeof(l)
+    tot_mb=tot_bytes/MB
+    tot_splits=math.ceil(tot_mb/block_size)
+    # fs.split(file='trial\Trial.pdf',split_size=tot_bytes//tot_splits,output_dir='out')
+    # fs.merge(input_dir='out')
+    return tot_splits'''
     def put(self, file):
 
         tot = get_tot_split(file, self.config["block_size"])
@@ -213,6 +223,11 @@ class PrimaryNameNode:
             going to write some stuff here
             '''
 
+
+            for i in self.dnIndex["blacklist"]:
+                if(not i):
+                
+                pass
             pass
         pass
 
