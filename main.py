@@ -4,7 +4,7 @@ import os
 import multiprocessing
 import namenode
 import threading
-
+#TODO - initialize the datanodes so they can run independently
 class IPC_Pathways():
     def __init__(self, config):
         self.config = config

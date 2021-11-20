@@ -7,10 +7,16 @@ from fsplit.filesplit import Filesplit
 import threading
 import json
 import os
+import socket
+import tqdm
 import shutil
 fs = Filesplit()
 
 MB=1000000
+SEPARATOR = "<SEPARATOR>"
+BUFFER_SIZE = 4096
+host = "192.168.0.218"
+port = 5001
 
 def get_tot_split(file_name,block_size): #contains the file split function
     f=open(file_name,'rb')
@@ -25,6 +31,7 @@ def get_tot_split(file_name,block_size): #contains the file split function
 
 '''
 dnIndex structure(Json)
+tot_emp : 
 replication factor: 
 dn1: [0,1,0,1...n blocks]
 .
@@ -52,9 +59,7 @@ VFS map:
 F1a: [[(dn1,2),(dn2,3),(dn3,5)],    [(dn1,4),(dn2, 5), (dn3, 2)]]
  
 '''
-def writer(dnIndex, file):
 
-    pass
 
 class PrimaryNameNode:
     def __init__(self, mQueue, mLock, pnnQueue, pnnLock, snnQueue, snnLock, config):
@@ -74,6 +79,14 @@ class PrimaryNameNode:
         except:
             self.sendMsg(mQueue, mLock, [101, None])
             self.namenode_config = None
+        
+        self.dnIndex = {
+            "tot_emp": self.config["num_datanodes"]*self.config["datanode_size"],
+            "rep_factor": int(self.config["replication_factor"])
+        }
+        for i in range(self.config["num_datanodes"]):
+            self.dnIndex["dn"+str(i+1)] = [0]*self.config["datanode_size"]
+
         self.SNNSyncThread = threading.Thread(target = self.SNNSync)
         self.SNNSyncThread.start()
 
@@ -105,7 +118,6 @@ class PrimaryNameNode:
         namenode_json_file = open(self.namenode_json_path, 'w')
         json.dump(self.namenode_config, namenode_json_file)
         namenode_json_file.close()
-
 
     def dumpNameNode(self):
         namenode_json_file = open(self.namenode_json_path, 'w')
@@ -187,6 +199,22 @@ class PrimaryNameNode:
         
     def ls(self):
         self.ls_recur(self.namenode_config['fs_root'], '/')
+    
+    
+ 
+    
+    def put(self, file):
+
+        tot = get_tot_split(file, self.config["block_size"])
+        if((tot*self.config["replication_factor"])>self.dnIndex["tot_emp"]):
+            print("Not enough space :D")
+        else:
+            '''
+            going to write some stuff here
+            '''
+
+            pass
+        pass
 
     def receiveMsg(self, queue, lock):
         lock.acquire(block = True)
