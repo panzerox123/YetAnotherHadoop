@@ -217,9 +217,10 @@ class PrimaryNameNode:
         port = self.dn[dn_num].port
         self.sck.connect((host, port))
         head, tail = os.path.split(file)
+        size = os.path.getsize(file)
         file = dir + tail[:tail.index(".")]+"_"+str(block)+tail[tail.index("."):]
-        self.sck.send(f"{file}{SEPARATOR}{os.path.getsize(file)}".encode())
-        progress = tqdm.tqdm(range(filesize), f"Sending {filename}", unit="B", unit_scale=True, unit_divisor=1024)
+        self.sck.send(f"{file}{SEPARATOR}{size}".encode())
+        progress = tqdm.tqdm(range(size), f"Sending {file}", unit="B", unit_scale=True, unit_divisor=1024)
         with open(file, "rb") as f:
             while True:
                 # read the bytes from the file
