@@ -14,11 +14,10 @@ import multiprocessing
 import datanode
 fs = Filesplit()
 
-MB=1000000
+MB=1048576 
 SEPARATOR = "<SEPARATOR>"
 BUFFER_SIZE = 4096
-host = "192.168.0.218"
-port = 5001
+NAMENODE_PORT = 5002
 
 def get_tot_split(file_name,block_size): #contains the file split function
     f=open(file_name,'rb')
@@ -29,7 +28,7 @@ def get_tot_split(file_name,block_size): #contains the file split function
     tot_splits=math.ceil(tot_mb/block_size)
     # fs.split(file='trial\Trial.pdf',split_size=tot_bytes//tot_splits,output_dir='out')
     # fs.merge(input_dir='out')
-    return tot_bytes,tot_splits
+    return tot_bytes, tot_splits
 
 '''
 dnIndex structure(Json)
@@ -93,11 +92,37 @@ class PrimaryNameNode:
         self.SNNSyncThread = threading.Thread(target = self.SNNSync)
         self.SNNSyncThread.start()
         self.namenode_socket = socket.socket()
-
+        self.namenode_socket.bind(('', NAMENODE_PORT))
+        self.namenode_socket.listen(self.namenode_config['num_datanodes'])
+        self.namenode_socket.setblocking(0)
+        self.initialise_datanodes()
     
-    def initialse_datanodes(self):
+    def initialise_datanodes(self):
+        self.datanode_process_list = []
+        self.datanode_port_list = []
+        init_port = 10000
         for i in range(self.config['num_datanodes']):
-            multiprocessing.Process(target=)
+            self.datanode_port_list.append(i+init_port)
+            self.datanode_process_list.append(threading.Thread(target=datanode.datanode_thread, args=(self.config, self.namenode_config['datanode_paths'][i], init_port+i)))
+        for i in self.datanode_process_list:
+            i.start()
+
+    def DNMsg(self, datanode_num, data):
+        self.namenode_socket.connect(('', self.datanode_port_list[datanode_num]))
+        self.namenode_socket.send(json.dumps(data).encode())
+        buf = []
+        while True:
+            try:
+                bytes_read = self.namenode_socket.recv(BUFFER_SIZE)
+            except:
+                break
+            if not bytes_read:
+                break
+            buf.append(bytes_read)
+        if len(buf) > 0:
+            output = b''.join(buf)
+            output = json.loads(output.decode())
+        self.namenode_socket.close()
 
 
     def format_namenode(self):
@@ -217,7 +242,7 @@ class PrimaryNameNode:
     '''
     def write(self, block, file, dn_num, dir):
         port = self.dn[dn_num].port
-        self.receiver_socket.connect((host, port))
+        self.receiver_socket.connect(('', port))
         head, tail = os.path.split(file)
         size = os.path.getsize(file)
         file = dir + tail[:tail.index(".")]+"_"+str(block)+tail[tail.index("."):]
@@ -260,13 +285,17 @@ class PrimaryNameNode:
         lock.acquire(block = True)
         if(not queue.empty()):
             message = queue.get()
-            print("secondary namenode rcvd", message[0])
+            print("namenode rcvd", message[0])
         else:
             message = [1, None]
         lock.release()
         if(message[0] == 0):
             self.pnnLoopRunning = False
             self.SNNSyncThread.join()
+            for i in range(self.namenode_config['num_datanodes']):
+                self.DNMsg(i, {'code': 0})
+            for i in self.datanode_process_list:
+                i.join()
             return 0
         elif(message[0] == 101):
             self.format_namenode()

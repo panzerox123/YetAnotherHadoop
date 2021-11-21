@@ -1,10 +1,11 @@
+import json
 import os
 import fileinput
 import socket
 import tqdm
 
 SERVER_HOST = "0.0.0.0"
-BUFFER_SIZE = 4096
+BUFFER_SIZE = 2
 SEPARATOR = "<SEPARATOR>"
 
 
@@ -14,7 +15,9 @@ class Datanode:
         self.datanode_path = path
         self.SERVER_PORT = port
         self.datanode_socket = socket.socket()
-        self.datanode_socket.bind((SERVER_HOST, self.SERVER_PORT))
+        self.datanode_socket.bind(('', self.SERVER_PORT))
+        self.datanode_socket.listen(5)
+        self.datanodeRunningLoop = True
         print(f"[*] Listening as {SERVER_HOST}:{self.SERVER_PORT}")
 
     # def recieve files
@@ -22,9 +25,32 @@ class Datanode:
     # def update datanode log
     # def return status to namenode
 
-    def reciever(self, client_socket, path):
+    def reciever(self):
+        while self.datanodeRunningLoop:
+            namenode_receiver_socket, namenode_reciever_addr = self.datanode_socket.accept()
+            namenode_receiver_socket.setblocking(False)
+            print('accepted:', namenode_reciever_addr)
+            buf = []
+            while True:
+                try:
+                    bytes_read = namenode_receiver_socket.recv(BUFFER_SIZE)
+                except:
+                    break
+                if not bytes_read:
+                    break
+                buf.append(bytes_read)
+            data = b''.join(buf)
+            data = json.loads(data.decode())
+            if data['code'] == 0:
+                print(data)
+                self.datanode_socket.close()
+                self.datanodeRunningLoop = False
+            namenode_receiver_socket.close()
+
+
+    def writer(self):
         self.namenode_receiver_socket, self.namenode_receiver_addr = self.datanode_socket.accept()
-        received = client_socket.recv(BUFFER_SIZE).decode()
+        received = self.namenode_receiver_socket.recv(BUFFER_SIZE).decode()
         filename, filesize = received.split(SEPARATOR)
         # remove absolute path if there is
         filename = os.path.basename(filename)
@@ -35,7 +61,7 @@ class Datanode:
         while True:
             with open(self.path+"/"+str(filename), "wb") as f:
                 while True:
-                    bytes_read = client_socket.recv(BUFFER_SIZE)
+                    bytes_read = self.namenode_receiver_socket.recv(BUFFER_SIZE)
                     if not bytes_read:   
                         break
                     f.write(bytes_read)
@@ -50,3 +76,5 @@ class Datanode:
 
 def datanode_thread(config, path, port):
     dn = Datanode(config, path, port)
+    dn.reciever()
+    exit(0)
