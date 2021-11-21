@@ -10,6 +10,8 @@ import os
 import socket
 import tqdm
 import shutil
+import multiprocessing
+import datanode
 fs = Filesplit()
 
 MB=1000000
@@ -90,7 +92,12 @@ class PrimaryNameNode:
 
         self.SNNSyncThread = threading.Thread(target = self.SNNSync)
         self.SNNSyncThread.start()
-        self.sck = socket.socket()
+        self.namenode_socket = socket.socket()
+
+    
+    def initialse_datanodes(self):
+        for i in range(self.config['num_datanodes']):
+            multiprocessing.Process(target=)
 
 
     def format_namenode(self):
@@ -210,11 +217,11 @@ class PrimaryNameNode:
     '''
     def write(self, block, file, dn_num, dir):
         port = self.dn[dn_num].port
-        self.sck.connect((host, port))
+        self.receiver_socket.connect((host, port))
         head, tail = os.path.split(file)
         size = os.path.getsize(file)
         file = dir + tail[:tail.index(".")]+"_"+str(block)+tail[tail.index("."):]
-        self.sck.send(f"{file}{SEPARATOR}{size}".encode())
+        self.receiver_socket.send(f"{file}{SEPARATOR}{size}".encode())
         progress = tqdm.tqdm(range(size), f"Sending {file}", unit="B", unit_scale=True, unit_divisor=1024)
         with open(file, "rb") as f:
             while True:
@@ -225,7 +232,7 @@ class PrimaryNameNode:
                     break
                 # we use sendall to assure transimission in 
                 # busy networks
-                self.sck.sendall(bytes_read)
+                self.receiver_socket.sendall(bytes_read)
                 # update the progress bar
                 progress.update(len(bytes_read))
         

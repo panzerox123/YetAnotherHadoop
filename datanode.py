@@ -4,36 +4,26 @@ import socket
 import tqdm
 
 SERVER_HOST = "0.0.0.0"
-
 BUFFER_SIZE = 4096
 SEPARATOR = "<SEPARATOR>"
 
 
 class Datanode:
-    def __init__(self, path, size, blocks, logPath, num, port):
-        
-        self.path = path
-        self.size = size
-        self.blocks = blocks
-        self.logPath = logPath
-        self.num = num
+    def __init__(self, config, path, port):
+        self.config = config
+        self.datanode_path = path
         self.SERVER_PORT = port
-        s = socket.socket()
-
-        s.bind((SERVER_HOST, self.SERVER_PORT))
+        self.datanode_socket = socket.socket()
+        self.datanode_socket.bind((SERVER_HOST, self.SERVER_PORT))
         print(f"[*] Listening as {SERVER_HOST}:{self.SERVER_PORT}")
-        
-        client_socket, address = s.accept() 
-        self.server(client_socket, self.path)
-        pass
 
     # def recieve files
     # def write files
     # def update datanode log
     # def return status to namenode
 
-    def writer(self, client_socket, path):
-        
+    def reciever(self, client_socket, path):
+        self.namenode_receiver_socket, self.namenode_receiver_addr = self.datanode_socket.accept()
         received = client_socket.recv(BUFFER_SIZE).decode()
         filename, filesize = received.split(SEPARATOR)
         # remove absolute path if there is
@@ -57,3 +47,6 @@ class Datanode:
         s.close()
         pass
 
+
+def datanode_thread(config, path, port):
+    dn = Datanode(config, path, port)
