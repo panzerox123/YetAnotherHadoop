@@ -56,4 +56,3 @@ class Datanode:
         # close the server socket
         s.close()
         pass
-
