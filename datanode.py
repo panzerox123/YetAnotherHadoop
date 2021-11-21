@@ -3,7 +3,7 @@ import fileinput
 import socket
 import tqdm
 
-SERVER_HOST = "0.0.0.0"
+SERVER_HOST = ""
 
 BUFFER_SIZE = 4096
 SEPARATOR = "<SEPARATOR>"

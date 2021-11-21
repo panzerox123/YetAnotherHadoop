@@ -83,7 +83,8 @@ class PrimaryNameNode:
         self.dnIndex = {
             "tot_emp": self.config["num_datanodes"]*self.config["datanode_size"],
             "rep_factor": int(self.config["replication_factor"]),
-            "blacklist": [0]*self.config["num_datanodes"]
+            "blacklist": [0]*self.config["num_datanodes"],
+            "socket_num": []
         }
         for i in range(self.config["num_datanodes"]):
             self.dnIndex["dn"+str(i+1)] = [0]*self.config["datanode_size"]
@@ -207,6 +208,8 @@ class PrimaryNameNode:
     TODO
     -send filename as block number for the datanode
     -log datanode memory status and update the same in the blacklist field
+    -initialize datanode objects in an array
+    -fs_root update
     '''
     def write(self, block, file, dn_num, dir):
         port = self.dn[dn_num].port
