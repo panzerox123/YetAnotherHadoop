@@ -30,38 +30,6 @@ def get_tot_split(file_name,block_size): #contains the file split function
     # fs.merge(input_dir='out')
     return tot_bytes, tot_splits
 
-'''
-dnIndex structure(Json)
-tot_emp : 
-replication factor: 
-dn1: [0,1,0,1...n blocks]
-.
-.
-.
-'''
-#------
-'''
-virtual fs structure(Json)
-->Folder1 :
-[
-    ->F1a
-    ->F1b
-    .
-    .
-]
-->FileB
-.
-.
-'''
-#-------
-'''
-VFS map:
-        Block 1 replicated 3 times  Block 2 replicated
-F1a: [[(dn1,2),(dn2,3),(dn3,5)],    [(dn1,4),(dn2, 5), (dn3, 2)]]
- 
-'''
-
-
 class PrimaryNameNode:
     def __init__(self, mQueue, mLock, pnnQueue, pnnLock, snnQueue, snnLock, config):
         self.pnnLoopRunning = True
@@ -160,7 +128,7 @@ class PrimaryNameNode:
         namenode_json_file.close()
 
     def mkdir_recur(self, folder_arr, curr, parent=True) -> dict:
-        if parent:
+        if not parent:
             if len(folder_arr) > 1 and folder_arr[0] not in curr.keys():
                 raise FileNotFoundError
         if len(folder_arr) > 0:
@@ -235,11 +203,6 @@ class PrimaryNameNode:
     def ls(self):
         self.ls_recur(self.namenode_config['fs_root'], '/')
     
-    '''
-    TODO
-    -send filename as block number for the datanode
-    -log datanode memory status and update the same in the blacklist field
-    '''
     def write(self, block, file, dn_num, dir):
         port = self.dn[dn_num].port
         self.receiver_socket.connect(('', port))
@@ -260,10 +223,22 @@ class PrimaryNameNode:
                 self.receiver_socket.sendall(bytes_read)
                 # update the progress bar
                 progress.update(len(bytes_read))
-        
-    def put(self, file):
 
-        tot_bytes,tot = get_tot_split(file, self.namenode_config["block_size"])
+    def put_recur(self, path_arr, curr, file_name, file_data):
+        if(len(path_arr) > 0):
+            if path_arr[0] not in curr.keys():
+                raise FileNotFoundError
+            else:
+                curr[path_arr[0]]['data'] = self.put_recur(path_arr[1:], curr[path_arr[0]]['data'], file_name, file_data)
+                return curr
+        else:
+            curr[path_arr[0]]['data'][file_name] = file_data
+            return curr
+
+        
+    def put(self, file_name):
+
+        tot_bytes,tot = get_tot_split(file_name, self.namenode_config["block_size"])
         if((tot*self.config["replication_factor"])>self.dnIndex["tot_emp"]):
             print("Not enough space :D")
         else:
@@ -272,13 +247,13 @@ class PrimaryNameNode:
             '''
             out = "/Users/utkarshgupta/Documents/DevWork/YetAnotherHadoop/out"
             os.makedirs(os.path.expandvars(out), exist_ok=True)
-            fs.split(file=file,split_size=tot_bytes//tot,output_dir='out')
+            fs.split(file=file_name,split_size=tot_bytes//tot,output_dir='out')
             dn_num = 0
             for i in range(tot):
                 for j in range(self.config["replication_factor"]):
                     while(not self.dnIndex["blacklist"][dn_num]):
                         dn_num = (dn_num + 1)%len(self.dnIndex["blacklist"])
-                    self.write(i, file, dn_num, out)
+                    self.write(i, file_name, dn_num, out)
 
 
     def receiveMsg(self, queue, lock):
@@ -316,6 +291,8 @@ class PrimaryNameNode:
         elif(message[0] == 107):
             self.ls()
             return 107
+        elif(message[0] == 108):
+            self.put(message[1])
         else:
             return 1
 
