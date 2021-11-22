@@ -40,9 +40,10 @@ class Datanode:
                     break
                 buf.append(bytes_read)
             data = b''.join(buf)
+            # print(buf)
             data = json.loads(data.decode())
             if data['code'] == 0:
-                print(data)
+                # print(data)
                 self.datanode_socket.close()
                 self.datanodeRunningLoop = False
             namenode_receiver_socket.close()

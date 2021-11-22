@@ -17,7 +17,7 @@ fs = Filesplit()
 MB=1048576 
 SEPARATOR = "<SEPARATOR>"
 BUFFER_SIZE = 4096
-NAMENODE_PORT = 5002
+NAMENODE_PORT = 5000
 
 def get_tot_split(file_name,block_size): #contains the file split function
     f=open(file_name,'rb')
@@ -91,16 +91,12 @@ class PrimaryNameNode:
 
         self.SNNSyncThread = threading.Thread(target = self.SNNSync)
         self.SNNSyncThread.start()
-        self.namenode_socket = socket.socket()
-        self.namenode_socket.bind(('', NAMENODE_PORT))
-        self.namenode_socket.listen(self.namenode_config['num_datanodes'])
-        self.namenode_socket.setblocking(0)
         self.initialise_datanodes()
     
     def initialise_datanodes(self):
         self.datanode_process_list = []
         self.datanode_port_list = []
-        init_port = 10000
+        init_port = 9000
         for i in range(self.config['num_datanodes']):
             self.datanode_port_list.append(i+init_port)
             self.datanode_process_list.append(threading.Thread(target=datanode.datanode_thread, args=(self.config, self.namenode_config['datanode_paths'][i], init_port+i)))
@@ -108,6 +104,9 @@ class PrimaryNameNode:
             i.start()
 
     def DNMsg(self, datanode_num, data):
+        self.namenode_socket = socket.socket()
+        # self.namenode_socket.setblocking(0)
+        # self.namenode_socket.settimeout(1)
         self.namenode_socket.connect(('', self.datanode_port_list[datanode_num]))
         self.namenode_socket.send(json.dumps(data).encode())
         buf = []
@@ -122,6 +121,7 @@ class PrimaryNameNode:
         if len(buf) > 0:
             output = b''.join(buf)
             output = json.loads(output.decode())
+            print(output)
         self.namenode_socket.close()
 
 
@@ -296,6 +296,7 @@ class PrimaryNameNode:
                 self.DNMsg(i, {'code': 0})
             for i in self.datanode_process_list:
                 i.join()
+            # self.DNMsg(0, {'code': 0})
             return 0
         elif(message[0] == 101):
             self.format_namenode()
