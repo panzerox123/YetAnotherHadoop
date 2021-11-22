@@ -163,8 +163,8 @@ def cli(ipc):
                 #DO SOMETHING TO CALL THE PUT FUNCTION KUNAL
                 pass
             elif command[0].strip() == 'mkdir':
-                if(command[1].strip == '-p'):
-                    ipc.mkdir_parent(command[1].strip())
+                if(command[1].strip() == '-p'):
+                    ipc.mkdir_parent(command[2].strip())
                 else:
                     ipc.mkdir(command[1].strip())
             elif command[0].strip() == 'rmdir':

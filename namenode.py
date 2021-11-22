@@ -146,7 +146,7 @@ class PrimaryNameNode:
     def mkdir(self, path):
         folders = path.split('/')
         try:
-            self.namenode_config['fs_root']['data'] = self.mkdir_recur(folders[1:], self.namenode_config['fs_root']['data'], True)
+            self.namenode_config['fs_root']['data'] = self.mkdir_recur(folders[1:], self.namenode_config['fs_root']['data'], False)
         except FileNotFoundError:
             self.sendMsg(self.mQueue, self.mLock, [1041, None])
             return
@@ -156,7 +156,7 @@ class PrimaryNameNode:
     def mkdir_parent(self, path):
         folders = path.split('/')
         try:
-            self.namenode_config['fs_root']['data'] = self.mkdir_recur(folders[1:], self.namenode_config['fs_root']['data'], False)
+            self.namenode_config['fs_root']['data'] = self.mkdir_recur(folders[1:], self.namenode_config['fs_root']['data'], True)
         except FileNotFoundError:
             self.sendMsg(self.mQueue, self.mLock, [1051, None])
             return
