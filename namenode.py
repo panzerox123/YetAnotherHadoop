@@ -40,6 +40,7 @@ class PrimaryNameNode:
         self.snnQueue = snnQueue
         self.snnLock = snnLock
         self.config = config
+        self.crash = 0
         self.namenode_json_path = os.path.join(self.config["path_to_namenodes"], "namenode.json")
         try:
             namenode_json_file = open(self.namenode_json_path, 'r')
@@ -257,6 +258,7 @@ class PrimaryNameNode:
 
 
     def receiveMsg(self, queue, lock):
+        self.crash = 0
         lock.acquire(block = True)
         if(not queue.empty()):
             message = queue.get()
@@ -301,8 +303,14 @@ class PrimaryNameNode:
         timeout=time.time()+self.config['sync_period']
         while self.pnnLoopRunning:
             if(time.time()>timeout):
-                self.sendMsg(self.snnQueue, self.snnLock, [103, None])
-                timeout=time.time()+self.config['sync_period']
+                if(self.crash == 1):
+                    self.sendMsg(self.mQueue, self.mLock, [109, None])
+                    self.sendMsg(self.snnQueue, self.snnLock, [205, None])
+                    break
+                else:
+                    self.sendMsg(self.snnQueue, self.snnLock, [103, None])
+                    timeout=time.time()+self.config['sync_period']
+                    self.crash = 1
         exit(0)
 
 class SecondaryNameNode():
@@ -344,6 +352,9 @@ class SecondaryNameNode():
         elif(message[0] == 203):
             self.heartbeat = 1
             return 203
+        elif(message[0] == 205):
+            self.name_node_crash = True
+            return 205
         else:
             return 1
     

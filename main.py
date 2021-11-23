@@ -67,6 +67,9 @@ class IPC_Pathways():
             return 102
         elif(message[0] == 103):
             return 103
+        elif(message[0] == 109):
+            print("Primary namenode crashed")
+            return 109
         elif(message[0] == 200):
             print("Secondary namenode started")
             return 200
