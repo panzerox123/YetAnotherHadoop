@@ -6,7 +6,7 @@
 #105 mkdir -p (1050 success, 1051 failure)
 #106 rmdir (1060 success, 1061 failure)
 #107 ls
-#108 put
+#108 put (1080 success, 1081 failure)
 #200 Secondary namenode init successful
 #201 config file received by Secondary namenode
 #202 Secondary namenode SNNSync thread initiated correctly

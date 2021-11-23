@@ -12,12 +12,9 @@ import tqdm
 import shutil
 import multiprocessing
 import datanode
-fs = Filesplit()
 
 MB=1048576 
-SEPARATOR = "<SEPARATOR>"
 BUFFER_SIZE = 4096
-NAMENODE_PORT = 5000
 
 def get_tot_split(file_name,block_size): #contains the file split function
     f=open(file_name,'rb')
@@ -26,8 +23,6 @@ def get_tot_split(file_name,block_size): #contains the file split function
         tot_bytes+=sys.getsizeof(l)
     tot_mb=tot_bytes/MB
     tot_splits=math.ceil(tot_mb/block_size)
-    # fs.split(file='trial\Trial.pdf',split_size=tot_bytes//tot_splits,output_dir='out')
-    # fs.merge(input_dir='out')
     return tot_bytes, tot_splits
 
 class PrimaryNameNode:
@@ -41,6 +36,7 @@ class PrimaryNameNode:
         self.snnLock = snnLock
         self.config = config
         self.namenode_json_path = os.path.join(self.config["path_to_namenodes"], "namenode.json")
+        # self.free_ptr = 0
         try:
             namenode_json_file = open(self.namenode_json_path, 'r')
             self.namenode_config = json.load(namenode_json_file)
@@ -99,20 +95,23 @@ class PrimaryNameNode:
         dn_status = []
         for i in range(self.config["num_datanodes"]):
             dn_path = os.path.join(self.config['path_to_datanodes'],str(i))
-            dn_status.append('idle')
             dn_remaining.append(self.config['datanode_size'])
             dn_paths.append(dn_path)
         for i in dn_paths:
             shutil.rmtree(i, ignore_errors=True)
         for i in dn_paths:
             os.mkdir(i)
+        free_mat = []
+        for i in range(self.config['datanode_size']):
+            for j in range(self.config['num_datanodes']):
+                free_mat.append((j, True))
         self.namenode_config = {
             "block_size": self.config["block_size"],
             "datanode_size": self.config["datanode_size"],
             "num_datanodes": self.config["num_datanodes"],
             "datanode_paths": dn_paths,
-            "datanode_status" : dn_status,
             "datanode_remaining" : dn_remaining,
+            "free_matrix" : free_mat,
             "fs_root": {
                 "type" : "dir",
                 "data" : {}
@@ -204,28 +203,22 @@ class PrimaryNameNode:
         self.ls_recur(self.namenode_config['fs_root'], '/')
     
     def write(self, block, file, dn_num, dir):
-        port = self.dn[dn_num].port
-        self.receiver_socket.connect(('', port))
-        head, tail = os.path.split(file)
-        size = os.path.getsize(file)
-        file = dir + tail[:tail.index(".")]+"_"+str(block)+tail[tail.index("."):]
-        self.receiver_socket.send(f"{file}{SEPARATOR}{size}".encode())
-        progress = tqdm.tqdm(range(size), f"Sending {file}", unit="B", unit_scale=True, unit_divisor=1024)
-        with open(file, "rb") as f:
-            while True:
-                # read the bytes from the file
-                bytes_read = f.read(BUFFER_SIZE)
-                if not bytes_read:
-                    # file transmitting is done
-                    break
-                # we use sendall to assure transimission in 
-                # busy networks
-                self.receiver_socket.sendall(bytes_read)
-                # update the progress bar
-                progress.update(len(bytes_read))
+        pass
+
+    def free_space(self) -> int:
+        free = 0
+        for i in self.namenode_config['datanode_remaining']:
+            free+=i
+        return free
+
+    def return_free_ptr(self) -> int:
+        free_ptr = 0
+        while not self.namenode_config['free_matrix'][free_ptr][1] and free_ptr < self.namenode_config['num_datanodes'] * self.namenode_config['datanode_size']:
+            free_ptr += 1
+        return free_ptr
 
     def put_recur(self, path_arr, curr, file_name, file_data):
-        if(len(path_arr) > 0):
+        if(len(path_arr) > 1):
             if path_arr[0] not in curr.keys():
                 raise FileNotFoundError
             else:
@@ -236,24 +229,50 @@ class PrimaryNameNode:
             return curr
 
         
-    def put(self, file_name):
-
-        tot_bytes,tot = get_tot_split(file_name, self.namenode_config["block_size"])
+    def put(self, file_path, hdfs_path):
+        file_name = os.path.basename(file_path)
+        path_arr = hdfs_path.split('/')
+        file_data = {
+            'type': 'file',
+        }
+        blocks = {}
+        total_size, total_splits = get_tot_split(file_path, self.config['block_size'])
+        if(3*total_splits > self.free_space()):
+            self.sendMsg(self.mQueue, self.mLock, [1081, None])
+            return
+        for i in range(total_splits):
+            blks = []
+            for j in range(self.config['replication_factor']):
+                write_to_node = self.return_free_ptr()
+                self.namenode_config['free_matrix'][write_to_node][1] = False
+                self.namenode_config['datanode_remaining'][self.namenode_config['free_matrix'][write_to_node][0]] -= 1
+                blks.append(self.namenode_config['free_matrix'][write_to_node][0])
+            blocks[i] = blks
+        file_data['blocks'] = blocks
+        try:
+            self.namenode_config['fs_root']['data'] = self.put_recur(path_arr[1:], self.namenode_config['fs_root']['data'],file_name, file_data) 
+        except Exception as e:
+            print("Error", e)
+            self.sendMsg(self.mQueue, self.mLock, [1081, None])
+            return
+        self.dumpNameNode()
+        self.sendMsg(self.mQueue, self.mLock, [1080, None])
+        '''
+        tot_bytes,tot = get_tot_split(file_path, self.namenode_config["block_size"])
         if((tot*self.config["replication_factor"])>self.dnIndex["tot_emp"]):
             print("Not enough space :D")
         else:
-            '''
-            going to write some stuff here
-            '''
+            # going to write some stuff here
             out = "/Users/utkarshgupta/Documents/DevWork/YetAnotherHadoop/out"
             os.makedirs(os.path.expandvars(out), exist_ok=True)
-            fs.split(file=file_name,split_size=tot_bytes//tot,output_dir='out')
+            fs.split(file=file_path,split_size=tot_bytes//tot,output_dir='out')
             dn_num = 0
             for i in range(tot):
                 for j in range(self.config["replication_factor"]):
                     while(not self.dnIndex["blacklist"][dn_num]):
                         dn_num = (dn_num + 1)%len(self.dnIndex["blacklist"])
-                    self.write(i, file_name, dn_num, out)
+                    self.write(i, file_path, dn_num, out)
+        '''
 
 
     def receiveMsg(self, queue, lock):
@@ -292,7 +311,8 @@ class PrimaryNameNode:
             self.ls()
             return 107
         elif(message[0] == 108):
-            self.put(message[1])
+            self.put(message[1], message[2])
+            return 108
         else:
             return 1
 

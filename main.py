@@ -98,6 +98,9 @@ class IPC_Pathways():
     def ls(self):
         self.sendMsg(self.pnnQueue, self.pnnLock, [107, None])
 
+    def put(self, src, dest):
+        self.sendMsg(self.pnnQueue, self.pnnLock, [108, src, dest])
+
     def stopAllNodes(self):
         print("Stopping Secondary namenode")
         self.sendMsg(self.snnQueue, self.snnLock, [0, None])
@@ -160,8 +163,7 @@ def cli(ipc):
         command = cmd.split()
         try:
             if command[0].strip() == 'put':
-                #DO SOMETHING TO CALL THE PUT FUNCTION KUNAL
-                pass
+                ipc.put(command[1], command[2])
             elif command[0].strip() == 'mkdir':
                 if(command[1].strip() == '-p'):
                     ipc.mkdir_parent(command[2].strip())
