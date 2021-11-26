@@ -13,17 +13,18 @@ import shutil
 import multiprocessing
 import datanode
 
-MB=1048576 
+MB=1048576
 BUFFER_SIZE = 4096
 
 def get_tot_split(file_name,block_size): #contains the file split function
     f=open(file_name,'rb')
     tot_bytes=0
     for l in f:
-        tot_bytes+=sys.getsizeof(l)
-    tot_mb=tot_bytes/MB
-    tot_splits=math.ceil(tot_mb/block_size)
-    return tot_bytes, tot_splits
+        tot_bytes+=len(l)
+    split_size = block_size*MB
+    tot_splits=math.ceil(tot_bytes/split_size)
+    f.close()
+    return tot_splits, split_size
 
 class PrimaryNameNode:
     def __init__(self, mQueue, mLock, pnnQueue, pnnLock, snnQueue, snnLock, config):
@@ -92,7 +93,6 @@ class PrimaryNameNode:
     def format_namenode(self):
         dn_paths = []
         dn_remaining = []
-        dn_status = []
         for i in range(self.config["num_datanodes"]):
             dn_path = os.path.join(self.config['path_to_datanodes'],str(i))
             dn_remaining.append(self.config['datanode_size'])
@@ -236,17 +236,31 @@ class PrimaryNameNode:
             'type': 'file',
         }
         blocks = {}
-        total_size, total_splits = get_tot_split(file_path, self.config['block_size'])
-        if(3*total_splits > self.free_space()):
+        splits, split_size = get_tot_split(file_path, self.config['block_size'])
+        if(3*splits > self.free_space()):
             self.sendMsg(self.mQueue, self.mLock, [1081, None])
             return
-        for i in range(total_splits):
+        for i in range(splits):
             blks = []
+            packet = {
+                'code': 301,
+                'file_name': file_name+'_'+str(i), 
+            }
+            packet_data = bytes()
+            file = open(file_path, 'rb')
+            for j in range(split_size):
+                char = file.read(1)
+                if(char == b''):
+                    break
+                packet_data+=char
+            file.close()
+            packet['packet_data'] = packet_data.decode()
             for j in range(self.config['replication_factor']):
                 write_to_node = self.return_free_ptr()
                 self.namenode_config['free_matrix'][write_to_node][1] = False
                 self.namenode_config['datanode_remaining'][self.namenode_config['free_matrix'][write_to_node][0]] -= 1
-                blks.append(self.namenode_config['free_matrix'][write_to_node][0])
+                self.DNMsg(self.namenode_config['free_matrix'][write_to_node][0], packet)
+                blks.append(write_to_node)
             blocks[i] = blks
         file_data['blocks'] = blocks
         try:
@@ -257,23 +271,12 @@ class PrimaryNameNode:
             return
         self.dumpNameNode()
         self.sendMsg(self.mQueue, self.mLock, [1080, None])
-        '''
-        tot_bytes,tot = get_tot_split(file_path, self.namenode_config["block_size"])
-        if((tot*self.config["replication_factor"])>self.dnIndex["tot_emp"]):
-            print("Not enough space :D")
-        else:
-            # going to write some stuff here
-            out = "/Users/utkarshgupta/Documents/DevWork/YetAnotherHadoop/out"
-            os.makedirs(os.path.expandvars(out), exist_ok=True)
-            fs.split(file=file_path,split_size=tot_bytes//tot,output_dir='out')
-            dn_num = 0
-            for i in range(tot):
-                for j in range(self.config["replication_factor"]):
-                    while(not self.dnIndex["blacklist"][dn_num]):
-                        dn_num = (dn_num + 1)%len(self.dnIndex["blacklist"])
-                    self.write(i, file_path, dn_num, out)
-        '''
 
+    def rm_recur(self, path_arr):
+        pass
+    
+    def rm(self, file_path):
+        path_arr = file_path.split('/')
 
     def receiveMsg(self, queue, lock):
         lock.acquire(block = True)

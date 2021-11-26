@@ -39,13 +39,18 @@ class Datanode:
                 if not bytes_read:
                     break
                 buf.append(bytes_read)
-            data = b''.join(buf)
-            # print(buf)
+            print(buf)
             data = json.loads(data.decode())
             if data['code'] == 0:
                 # print(data)
                 self.datanode_socket.close()
                 self.datanodeRunningLoop = False
+            elif data['code'] == 301:
+                write_path = os.path.join(self.datanode_path, data['file_name'])
+                write_file = open(write_path, 'wb')
+                for i in bytes(data['packet_data']):
+                    write_file.write(i)
+                write_file.close()
             namenode_receiver_socket.close()
 
 
