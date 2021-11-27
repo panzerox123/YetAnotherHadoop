@@ -104,7 +104,7 @@ class PrimaryNameNode:
         free_mat = []
         for i in range(self.config['datanode_size']):
             for j in range(self.config['num_datanodes']):
-                free_mat.append((j, True))
+                free_mat.append([j, True])
         self.namenode_config = {
             "block_size": self.config["block_size"],
             "datanode_size": self.config["datanode_size"],
