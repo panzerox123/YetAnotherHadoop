@@ -35,7 +35,7 @@ class Datanode:
             buf = []
             while True:
                 try:
-                    bytes_read = namenode_receiver_socket.recv(BUFFER_SIZE)
+                    bytes_read = namenode_receiver_socket.recv(self.config['block_size']*MB)
                 except:
                     break
                 if not bytes_read:
