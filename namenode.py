@@ -223,7 +223,7 @@ class PrimaryNameNode:
                 curr[path_arr[0]]['data'] = self.put_recur(path_arr[1:], curr[path_arr[0]]['data'], file_name, file_data)
                 return curr
         else:
-            curr[file_name] = file_data
+            curr[path_arr[0]]['data'][file_name] = file_data
             return curr
 
         
@@ -234,7 +234,6 @@ class PrimaryNameNode:
             'type': 'file',
         }
         blocks = {}
-        print('here')
         splits, split_size = get_tot_split(file_path, self.config['block_size'])
         print('Splits info: ', splits, split_size)
         if(3*splits > self.free_space()):
