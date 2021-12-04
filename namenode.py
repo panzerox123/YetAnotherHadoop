@@ -17,13 +17,10 @@ MB=1048576
 BUFFER_SIZE = 4096
 
 def get_tot_split(file_name,block_size): #contains the file split function
-    f=open(file_name,'rb')
-    tot_bytes=0
-    for l in f:
-        tot_bytes+=len(l)
+    # f=open(file_name,'rb')
+    tot_bytes=os.path.getsize(file_name)
     split_size = block_size*MB
     tot_splits=math.ceil(tot_bytes/split_size)
-    f.close()
     return tot_splits, split_size
 
 class PrimaryNameNode:
@@ -69,11 +66,12 @@ class PrimaryNameNode:
             i.start()
 
     def DNMsg(self, datanode_num, data):
-        self.namenode_socket = socket.socket()
+        self.namenode_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         # self.namenode_socket.setblocking(0)
         # self.namenode_socket.settimeout(1)
         self.namenode_socket.connect(('', self.datanode_port_list[datanode_num]))
-        self.namenode_socket.send(json.dumps(data).encode())
+        # print(json.dumps(data).encode())
+        self.namenode_socket.sendall(json.dumps(data).encode())
         buf = []
         while True:
             try:
@@ -225,7 +223,7 @@ class PrimaryNameNode:
                 curr[path_arr[0]]['data'] = self.put_recur(path_arr[1:], curr[path_arr[0]]['data'], file_name, file_data)
                 return curr
         else:
-            curr[path_arr[0]]['data'][file_name] = file_data
+            curr[file_name] = file_data
             return curr
 
         
@@ -236,7 +234,9 @@ class PrimaryNameNode:
             'type': 'file',
         }
         blocks = {}
+        print('here')
         splits, split_size = get_tot_split(file_path, self.config['block_size'])
+        print('Splits info: ', splits, split_size)
         if(3*splits > self.free_space()):
             self.sendMsg(self.mQueue, self.mLock, [1081, None])
             return
@@ -248,17 +248,15 @@ class PrimaryNameNode:
             }
             packet_data = bytes()
             file = open(file_path, 'rb')
-            for j in range(split_size):
-                char = file.read(1)
-                if(char == b''):
-                    break
-                packet_data+=char
+            packet_data = file.read(split_size)
             file.close()
             packet['packet_data'] = packet_data.decode()
             for j in range(self.config['replication_factor']):
+                print(j)
                 write_to_node = self.return_free_ptr()
                 self.namenode_config['free_matrix'][write_to_node][1] = False
                 self.namenode_config['datanode_remaining'][self.namenode_config['free_matrix'][write_to_node][0]] -= 1
+                # print('sending info:', packet, self.namenode_config['free_matrix'][write_to_node][0])
                 self.DNMsg(self.namenode_config['free_matrix'][write_to_node][0], packet)
                 blks.append(write_to_node)
             blocks[i] = blks

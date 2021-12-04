@@ -5,8 +5,9 @@ import socket
 import tqdm
 
 SERVER_HOST = "0.0.0.0"
-BUFFER_SIZE = 2
+BUFFER_SIZE = 4096
 SEPARATOR = "<SEPARATOR>"
+MB=1048576
 
 
 class Datanode:
@@ -14,7 +15,7 @@ class Datanode:
         self.config = config
         self.datanode_path = path
         self.SERVER_PORT = port
-        self.datanode_socket = socket.socket()
+        self.datanode_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.datanode_socket.bind(('', self.SERVER_PORT))
         self.datanode_socket.listen(5)
         self.datanodeRunningLoop = True
@@ -28,7 +29,8 @@ class Datanode:
     def reciever(self):
         while self.datanodeRunningLoop:
             namenode_receiver_socket, namenode_reciever_addr = self.datanode_socket.accept()
-            namenode_receiver_socket.setblocking(False)
+            # namenode_receiver_socket.setblocking(False)
+            namenode_receiver_socket.settimeout(2)
             print('accepted:', namenode_reciever_addr)
             buf = []
             while True:
@@ -39,8 +41,15 @@ class Datanode:
                 if not bytes_read:
                     break
                 buf.append(bytes_read)
+            if(len(buf) == 0):
+                print('resend packet')
+                continue
             data = b''.join(buf)
-            data = json.loads(data.decode())
+            try:
+                data = json.loads(data.decode())
+            except Exception as e:
+                print('Err: ', buf, e)
+                
             if data['code'] == 0:
                 # print(data)
                 self.datanode_socket.close()
@@ -66,7 +75,7 @@ class Datanode:
         while True:
             with open(self.path+"/"+str(filename), "wb") as f:
                 while True:
-                    bytes_read = self.namenode_receiver_socket.recv(BUFFER_SIZE)
+                    bytes_read = self.namenode_receiver_socket.recv(self.config['block_size'])
                     if not bytes_read:   
                         break
                     f.write(bytes_read)
