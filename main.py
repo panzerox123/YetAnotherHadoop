@@ -118,13 +118,25 @@ class IPC_Pathways():
     
     def mapred(self,file,mapper,reducer,output):
         try:
+            tmpfile_path = os.path.join(self.config['path_to_namenodes'], 'tmpfile')
+            try:
+                os.remove(tmpfile_path)
+            except:
+                pass
             self.cat(file)
             time.sleep(10)
-            tmpfile=open(file,'r')
-            script="python3 {} | sort -k 1,1 | python3 {}".format(mapper,reducer)
-            with tmpfile as i:
-                with open(output,'w') as o:
-                    call(script,stdin=i,stdout=o)
+            while not os.path.exists(tmpfile_path):
+                time.sleep(1)
+            with open(tmpfile_path, 'r') as i:
+                with open(os.path.join(self.config['path_to_namenodes'], 'mapper'),'w') as o:
+                    call('python3 {}'.format(mapper).split(),stdin=i,stdout=o)
+            with open(os.path.join(self.config['path_to_namenodes'], 'mapper'), 'r') as i:
+                with open(os.path.join(self.config['path_to_namenodes'], 'sorted'),'w') as o:
+                    call('sort -k 1,1'.split(),stdin=i,stdout=o)
+            with open(os.path.join(self.config['path_to_namenodes'], 'sorted'), 'r') as i:
+                with open(os.path.join(self.config['path_to_namenodes'], os.path.basename(output)),'w') as o:
+                    call('python3 {}'.format(reducer).split(),stdin=i,stdout=o)
+            self.put(os.path.join(self.config['path_to_namenodes'], os.path.basename(output)), os.path.dirname(output))
         except:
             print("An Error Occured")
 
