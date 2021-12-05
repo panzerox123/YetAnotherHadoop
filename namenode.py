@@ -280,6 +280,8 @@ class PrimaryNameNode:
     
     def rm(self, file_path):
         path_arr = file_path.split('/')
+        self.dumpNameNode()
+        self.sendMsg(self.mQueue, self.mLock, [1100, None])
     
     def read(self, file_name, blocks):
         print(file_name,blocks)
@@ -374,11 +376,15 @@ class PrimaryNameNode:
         else:
             return 1
 
+    def backupNameNode(self):
+        shutil.copyfile(self.namenode_json_path, os.path.join(self.config['namenode_checkpoints'], 'namenode' + '_' + str(round(time.time()))))
+
     def SNNSync(self):
         self.sendMsg(self.mQueue, self.mLock, [102, None])
         timeout=time.time()+self.config['sync_period']
         while self.pnnLoopRunning:
             if(time.time()>timeout):
+                self.backupNameNode()
                 self.sendMsg(self.snnQueue, self.snnLock, [103, None])
                 timeout=time.time()+self.config['sync_period']
         exit(0)
