@@ -59,6 +59,18 @@ class Datanode:
                 write_file = open(write_path, 'wb')
                 write_file.write(data['packet_data'].encode())
                 write_file.close()
+                namenode_receiver_socket.sendall(json.dumps({'code': 3010}).encode())
+            elif data['code'] == 302:
+                packet = dict()
+                try:
+                    read_path = os.path.join(self.datanode_path, data['file_name'])
+                    read_file = open(read_path, 'rb')
+                    packet_data = read_file.read(self.config['block_size']*MB)
+                    packet['code'] = 3020
+                    packet['packet_data'] = packet_data.decode()
+                except:
+                    packet['code'] = 3021
+                namenode_receiver_socket.sendall(json.dumps(packet).encode()) 
             namenode_receiver_socket.close()
 
 

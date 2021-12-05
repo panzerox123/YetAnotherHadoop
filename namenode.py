@@ -68,14 +68,14 @@ class PrimaryNameNode:
     def DNMsg(self, datanode_num, data):
         self.namenode_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         # self.namenode_socket.setblocking(0)
-        # self.namenode_socket.settimeout(1)
         self.namenode_socket.connect(('', self.datanode_port_list[datanode_num]))
+        # self.namenode_socket.settimeout(4)
         # print(json.dumps(data).encode())
         self.namenode_socket.sendall(json.dumps(data).encode())
         buf = []
         while True:
             try:
-                bytes_read = self.namenode_socket.recv(BUFFER_SIZE)
+                bytes_read = self.namenode_socket.recv(self.config['block_size']*MB)
             except:
                 break
             if not bytes_read:
@@ -84,8 +84,11 @@ class PrimaryNameNode:
         if len(buf) > 0:
             output = b''.join(buf)
             output = json.loads(output.decode())
-            print(output)
+            self.namenode_socket.close()
+            return output
         self.namenode_socket.close()
+        return {'code':1}
+
 
 
     def format_namenode(self):
@@ -236,6 +239,7 @@ class PrimaryNameNode:
         blocks = {}
         splits, split_size = get_tot_split(file_path, self.config['block_size'])
         print('Splits info: ', splits, split_size)
+        file = open(file_path, 'rb')
         if(3*splits > self.free_space()):
             self.sendMsg(self.mQueue, self.mLock, [1081, None])
             return
@@ -246,12 +250,10 @@ class PrimaryNameNode:
                 'file_name': file_name+'_'+str(i), 
             }
             packet_data = bytes()
-            file = open(file_path, 'rb')
             packet_data = file.read(split_size)
-            file.close()
             packet['packet_data'] = packet_data.decode()
             for j in range(self.config['replication_factor']):
-                print(j)
+                packet['file_name'] = file_name+'_'+ str(i) + '_' + str(j)
                 write_to_node = self.return_free_ptr()
                 self.namenode_config['free_matrix'][write_to_node][1] = False
                 self.namenode_config['datanode_remaining'][self.namenode_config['free_matrix'][write_to_node][0]] -= 1
@@ -260,6 +262,7 @@ class PrimaryNameNode:
                 blks.append(write_to_node)
             blocks[i] = blks
         file_data['blocks'] = blocks
+        file.close()
         try:
             self.namenode_config['fs_root']['data'] = self.put_recur(path_arr[1:], self.namenode_config['fs_root']['data'],file_name, file_data) 
         except Exception as e:
@@ -274,6 +277,53 @@ class PrimaryNameNode:
     
     def rm(self, file_path):
         path_arr = file_path.split('/')
+    
+    def read(self, file_name, blocks):
+        print(file_name,blocks)
+        data = {
+            'code': 302
+        }
+        for i in blocks:
+            res = 0
+            j = 0
+            tmpfile_path = os.path.join(self.config['path_to_namenodes'],'tmpfile')
+            try:
+                os.remove(tmpfile_path)
+            except:
+                pass
+            tmpfile = open(tmpfile_path, 'a')
+            while res != 3020:
+                data['file_name'] = file_name + '_' + str(i) + '_' + str(j)
+                out = self.DNMsg(self.namenode_config['free_matrix'][blocks[i][j]][0], data)
+                res = out['code']
+                print(out['packet_data'])
+                j+=1
+
+
+    def cat_recur(self, curr, path_arr):
+        if(len(path_arr) > 1):
+            if path_arr[0] not in curr.keys() or curr[path_arr[0]]['type'] != 'dir':
+                raise FileNotFoundError
+            else:
+                self.cat_recur(curr[path_arr[0]]['data'], path_arr[1:])
+        else:
+            if path_arr[0] not in curr.keys():
+                raise FileNotFoundError
+            else:
+                if curr[path_arr[0]]['type'] == 'file':
+                    self.read(path_arr[0], curr[path_arr[0]]['blocks'])
+                else:
+                    raise FileNotFoundError
+
+    def cat(self, file_path):
+        path_arr = file_path.split('/')
+        try:
+            self.cat_recur(self.namenode_config['fs_root']['data'], path_arr[1:])
+        except Exception as e:
+            print('File not found', e)
+            self.sendMsg(self.mQueue, self.mLock, [1091,None])
+            return
+        self.sendMsg(self.mQueue, self.mLock, [1090, None])
 
     def receiveMsg(self, queue, lock):
         lock.acquire(block = True)
@@ -313,6 +363,9 @@ class PrimaryNameNode:
         elif(message[0] == 108):
             self.put(message[1], message[2])
             return 108
+        elif(message[0] == 109):
+            self.cat(message[1])
+            return 109
         else:
             return 1
 

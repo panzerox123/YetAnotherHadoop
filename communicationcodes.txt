@@ -7,8 +7,11 @@
 #106 rmdir (1060 success, 1061 failure)
 #107 ls
 #108 put (1080 success, 1081 failure)
+#109 cat (1090 success, 1091 failure)
 #200 Secondary namenode init successful
 #201 config file received by Secondary namenode
 #202 Secondary namenode SNNSync thread initiated correctly
 #203 heartbeat
 #204 heartbeat failed
+#301 datanode write
+#302 datanode read(3020 read success, 3021 read failure)

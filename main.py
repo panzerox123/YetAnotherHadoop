@@ -101,6 +101,9 @@ class IPC_Pathways():
     def put(self, src, dest):
         self.sendMsg(self.pnnQueue, self.pnnLock, [108, src, dest])
 
+    def cat(self, path):
+        self.sendMsg(self.pnnQueue, self.pnnLock, [109, path])
+
     def stopAllNodes(self):
         print("Stopping Secondary namenode")
         self.sendMsg(self.snnQueue, self.snnLock, [0, None])
@@ -173,7 +176,10 @@ def cli(ipc):
                 ipc.rmdir(command[1].strip())
             elif command[0].strip() == 'ls':
                 ipc.ls()
+            elif command[0].strip() == 'cat':
+                ipc.cat(command[1])
         except IndexError:
+            print('Syntax error')
             continue
     
 
