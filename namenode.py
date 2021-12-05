@@ -219,6 +219,9 @@ class PrimaryNameNode:
         return free_ptr
 
     def put_recur(self, path_arr, curr, file_name, file_data):
+        if(path_arr[0] == '' and len(path_arr) == 1):
+            curr[file_name] = file_data
+            return curr
         if(len(path_arr) > 1):
             if path_arr[0] not in curr.keys():
                 raise FileNotFoundError
@@ -283,21 +286,23 @@ class PrimaryNameNode:
         data = {
             'code': 302
         }
+        tmpfile_path = os.path.join(self.config['path_to_namenodes'],'tmpfile')
+        try:
+            os.remove(tmpfile_path)
+        except:
+            pass
+        tmpfile = open(tmpfile_path, 'a')
         for i in blocks:
             res = 0
             j = 0
-            tmpfile_path = os.path.join(self.config['path_to_namenodes'],'tmpfile')
-            try:
-                os.remove(tmpfile_path)
-            except:
-                pass
-            tmpfile = open(tmpfile_path, 'a')
             while res != 3020:
                 data['file_name'] = file_name + '_' + str(i) + '_' + str(j)
                 out = self.DNMsg(self.namenode_config['free_matrix'][blocks[i][j]][0], data)
                 res = out['code']
                 print(out['packet_data'])
+                tmpfile.write(out['packet_data'])
                 j+=1
+        tmpfile.close()
 
 
     def cat_recur(self, curr, path_arr):
