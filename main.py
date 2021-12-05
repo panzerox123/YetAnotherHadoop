@@ -4,6 +4,8 @@ import os
 import multiprocessing
 import namenode
 import threading
+import time
+from subprocess import call
 #TODO - initialize the datanodes so they can run independently
 class IPC_Pathways():
     def __init__(self, config):
@@ -114,6 +116,17 @@ class IPC_Pathways():
         self.mainReceiverLoop = False
         self.mainReceiver.join()
     
+    def mapred(self,file,mapper,reducer,output):
+        try:
+            self.cat(file)
+            time.sleep(10)
+            tmpfile=open(file,'r')
+            script="python3 {} | sort -k 1,1 | python3 {}".format(mapper,reducer)
+            with tmpfile as i:
+                with open(output,'w') as o:
+                    call(script,stdin=i,stdout=o)
+        except:
+            print("An Error Occured")
 
 def create_dfs():
     config_path = input("Enter path for configuration file: ")
@@ -178,6 +191,8 @@ def cli(ipc):
                 ipc.ls()
             elif command[0].strip() == 'cat':
                 ipc.cat(command[1])
+            elif command[0].strip()=='mr':
+                ipc.mapred(command[1],command[2],command[3],command[4])
         except IndexError:
             print('Syntax error')
             continue
