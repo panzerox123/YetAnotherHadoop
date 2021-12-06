@@ -287,14 +287,6 @@ class PrimaryNameNode:
             self.sendMsg(self.mQueue, self.mLock, [1080, None])
         except FileNotFoundError or NotADirectoryError:
             print("File not found")
-
-    def rm_recur(self, path_arr):
-        pass
-    
-    def rm(self, file_path):
-        path_arr = file_path.split('/')
-        self.dumpNameNode()
-        self.sendMsg(self.mQueue, self.mLock, [1100, None])
     
     def del_file(self,filename,blocks):
         tot_dnodes=self.config['num_datanodes']
