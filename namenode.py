@@ -286,6 +286,47 @@ class PrimaryNameNode:
         self.dumpNameNode()
         self.sendMsg(self.mQueue, self.mLock, [1100, None])
     
+    def del_file(self,filename,blocks):
+        tot_dnodes=self.config['num_datanodes']
+        for i in blocks:
+            res=0
+            for p,j in enumerate(blocks[i]):
+                fname=filename+'_'+str(i)+'_'+str(p)
+                b_path=os.path.join(self.config['path_to_datanodes'],str(j%tot_dnodes),fname)
+                try:
+                    if(os.path.isfile(b_path)):
+                        os.remove(b_path)
+                except:
+                    print("An Error Occured")
+
+    def rm_file_recur(self, curr, path_arr):
+        if(len(path_arr) > 1):
+            if path_arr[0] not in curr.keys() or curr[path_arr[0]]['type'] != 'dir':
+                raise FileNotFoundError
+            else:
+                self.rm_file_recur(curr[path_arr[0]]['data'], path_arr[1:])
+        else:
+            if path_arr[0] not in curr.keys():
+                raise FileNotFoundError
+            else:
+                if curr[path_arr[0]]['type'] == 'file':
+                    self.del_file(path_arr[0], curr[path_arr[0]]['blocks'])
+                    del curr[path_arr[0]]
+                    self.dumpNameNode()
+                else:
+                    raise FileNotFoundError
+
+    def rm_file(self,filepath):
+        path_arr = filepath.split('/')
+        try:
+            self.rm_file_recur(self.namenode_config['fs_root']['data'], path_arr[1:])
+        except Exception as e:
+            print('File not found', e)
+            self.sendMsg(self.mQueue, self.mLock, [1101,None])
+            return
+        self.sendMsg(self.mQueue, self.mLock, [1100, None])
+
+                        
     def read(self, file_name, blocks):
         print(file_name,blocks)
         data = {
@@ -376,6 +417,9 @@ class PrimaryNameNode:
         elif(message[0] == 109):
             self.cat(message[1])
             return 109
+        elif(message[0]==110):
+            self.rm_file(message[1])
+            return 110
         else:
             return 1
 
