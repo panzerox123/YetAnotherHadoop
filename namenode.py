@@ -35,7 +35,6 @@ class PrimaryNameNode:
         self.config = config
         self.tmpfileLock = tmpfileLock
         self.namenode_json_path = os.path.join(self.config["path_to_namenodes"], "namenode.json")
-        self.log = open(self.config["namenode_log_path"], "w")
         # self.free_ptr = 0
         try:
             namenode_json_file = open(self.namenode_json_path, 'r')
@@ -62,11 +61,8 @@ class PrimaryNameNode:
         self.datanode_port_list = []
         init_port = 9000
         for i in range(self.config['num_datanodes']):
-            self.datanode_port_list.append(init_port + i)
-
-            self.datanode_process_list.append(threading.Thread(target=datanode.datanode_thread, args=(self.config, self.namenode_config['datanode_paths'][i], init_port + i, i)))
-            self.log.write("Started datanode" + str(i) + "at" + str(time.time()) + "\n")
-
+            self.datanode_port_list.append(i+init_port)
+            self.datanode_process_list.append(threading.Thread(target=datanode.datanode_thread, args=(self.config, self.namenode_config['datanode_paths'][i], init_port+i)))
         for i in self.datanode_process_list:
             i.start()
 
@@ -84,7 +80,6 @@ class PrimaryNameNode:
 
         # self.namenode_socket.settimeout(4)
         # print(json.dumps(data).encode())
-        self.log.write("Sending" + str(data) + "to datanode" + str(datanode_num) + "at" + str(time.time()) + "\n")
         self.namenode_socket.sendall(json.dumps(data).encode())
         buf = []
         while True:
@@ -99,7 +94,6 @@ class PrimaryNameNode:
             output = b''.join(buf)
             output = json.loads(output.decode())
             self.namenode_socket.close()
-            self.log.write("Recieved" + str(output) + "from datanode" + str(datanode_num) + "at" + str(time.time()) + "\n")
             return output
         self.namenode_socket.close()
         return {'code':1}
@@ -107,7 +101,6 @@ class PrimaryNameNode:
 
 
     def format_namenode(self):
-        self.log.write("Formatting namenode at" + str(time.time()) + "\n")
         dn_paths = []
         dn_remaining = []
         for i in range(self.config["num_datanodes"]):
@@ -203,7 +196,7 @@ class PrimaryNameNode:
         self.dumpNameNode()
 
     def sendMsg(self, queue, lock, data):
-        self.log.write("Sending message" + str(data) + "at" + str(time.time()) + "\n")
+        print("namenode sent", data[0])
         lock.acquire(block = True)
         queue.put(data)
         lock.release()
@@ -399,7 +392,7 @@ class PrimaryNameNode:
         lock.acquire(block = True)
         if(not queue.empty()):
             message = queue.get()
-            self.log.write("Received message" + str(message) + "at" + str(time.time()) + "\n")
+            print("namenode rcvd", message[0])
         else:
             message = [1, None]
         lock.release()
@@ -411,7 +404,6 @@ class PrimaryNameNode:
             for i in self.datanode_process_list:
                 i.join()
             # self.DNMsg(0, {'code': 0})
-            self.log.close()
             return 0
         elif(message[0] == 101):
             self.format_namenode()
@@ -472,6 +464,7 @@ class SecondaryNameNode():
         self.PNNSyncThread.start()
 
     def sendMsg(self, queue, lock, data):
+        print("secondary namenode sent", data[0])
         lock.acquire(block = True)
         queue.put(data)
         lock.release()
@@ -480,6 +473,7 @@ class SecondaryNameNode():
         lock.acquire(block = True)
         if(not queue.empty()):
             message = queue.get()
+            print("Secondary namenode rcvd", message[0])
         else:
             message = [1, None]
         lock.release()
@@ -511,6 +505,7 @@ class SecondaryNameNode():
                 tt=time.time()+self.config['sync_period']*0.5
                 if(self.heartbeat==1):
                     self.heartbeat = 0
+                    print("heartbeat received")
                     self.snnLoopRunning=False
                     break
                 while True:
@@ -518,6 +513,7 @@ class SecondaryNameNode():
                         if(self.heartbeat == 1):
                             self.heartbeat = 0
                             self.snnLoopRunning=False
+                            print("heartbeat received")
                         else:
                             break
                 if(self.snnLoopRunning):
