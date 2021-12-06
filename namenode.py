@@ -12,6 +12,7 @@ import tqdm
 import shutil
 import multiprocessing
 import datanode
+import logging
 
 MB=1048576
 BUFFER_SIZE = 4096
@@ -330,7 +331,7 @@ class PrimaryNameNode:
         self.sendMsg(self.mQueue, self.mLock, [1100, None])
 
                         
-    def read(self, file_name, blocks):
+    def read(self, file_name, blocks, pr):
         print(file_name,blocks)
         self.tmpfileLock.acquire()
         data = {
@@ -349,14 +350,16 @@ class PrimaryNameNode:
                 data['file_name'] = file_name + '_' + str(i) + '_' + str(j)
                 out = self.DNMsg(self.namenode_config['free_matrix'][blocks[i][j]][0], data)
                 res = out['code']
-                #print(out['packet_data'])
-                tmpfile.write(out['packet_data'])
+                if pr:
+                    print(out['packet_data'])
+                else:
+                    tmpfile.write(out['packet_data'])
                 j+=1
         tmpfile.close()
         self.tmpfileLock.release()
 
 
-    def cat_recur(self, curr, path_arr):
+    def cat_recur(self, curr, path_arr, pr):
         if(len(path_arr) > 1):
             if path_arr[0] not in curr.keys() or curr[path_arr[0]]['type'] != 'dir':
                 raise FileNotFoundError
@@ -367,14 +370,14 @@ class PrimaryNameNode:
                 raise FileNotFoundError
             else:
                 if curr[path_arr[0]]['type'] == 'file':
-                    self.read(path_arr[0], curr[path_arr[0]]['blocks'])
+                    self.read(path_arr[0], curr[path_arr[0]]['blocks'], pr)
                 else:
                     raise FileNotFoundError
 
-    def cat(self, file_path):
+    def cat(self, file_path, pr=True):
         path_arr = file_path.split('/')
         try:
-            self.cat_recur(self.namenode_config['fs_root']['data'], path_arr[1:])
+            self.cat_recur(self.namenode_config['fs_root']['data'], path_arr[1:], pr)
         except Exception as e:
             print('File not found', e)
             self.sendMsg(self.mQueue, self.mLock, [1091,None])
@@ -421,7 +424,7 @@ class PrimaryNameNode:
             self.put(message[1], message[2])
             return 108
         elif(message[0] == 109):
-            self.cat(message[1])
+            self.cat(message[1], message[2])
             return 109
         elif(message[0]==110):
             self.rm_file(message[1])

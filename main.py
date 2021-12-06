@@ -104,8 +104,8 @@ class IPC_Pathways():
     def put(self, src, dest):
         self.sendMsg(self.pnnQueue, self.pnnLock, [108, src, dest])
 
-    def cat(self, path):
-        self.sendMsg(self.pnnQueue, self.pnnLock, [109, path])
+    def cat(self, path, pr = True):
+        self.sendMsg(self.pnnQueue, self.pnnLock, [109, path, pr])
     
     def rm(self,filepath):
         self.sendMsg(self.pnnQueue,self.pnnLock,[110,filepath])
@@ -127,7 +127,7 @@ class IPC_Pathways():
                 os.remove(tmpfile_path)
             except:
                 pass
-            self.cat(file)
+            self.cat(file, False)
             time.sleep(5)
             self.tmpfileLock.acquire()
             with open(tmpfile_path, 'r') as i:
