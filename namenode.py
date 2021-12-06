@@ -35,6 +35,7 @@ class PrimaryNameNode:
         self.config = config
         self.tmpfileLock = tmpfileLock
         self.namenode_json_path = os.path.join(self.config["path_to_namenodes"], "namenode.json")
+        self.crash_status = False
         # self.free_ptr = 0
         try:
             namenode_json_file = open(self.namenode_json_path, 'r')
@@ -389,6 +390,7 @@ class PrimaryNameNode:
         self.sendMsg(self.mQueue, self.mLock, [1090, None])
 
     def receiveMsg(self, queue, lock):
+        self.crash_status = False
         lock.acquire(block = True)
         if(not queue.empty()):
             message = queue.get()
@@ -443,6 +445,9 @@ class PrimaryNameNode:
         timeout=time.time()+self.config['sync_period']
         while self.pnnLoopRunning:
             if(time.time()>timeout):
+                if(self.crash_status):
+                    exit(-1)
+                self.crash_status = True
                 self.backupNameNode()
                 self.sendMsg(self.snnQueue, self.snnLock, [103, None])
                 timeout=time.time()+self.config['sync_period']
@@ -450,6 +455,7 @@ class PrimaryNameNode:
 
 class SecondaryNameNode():
     def __init__(self, mQueue, mLock, pnnQueue, pnnLock, snnQueue, snnLock, config):
+        self.crash_status = False
         self.snnLoopRunning = True
         self.heartbeat = True
         self.name_node_crash = False
@@ -470,6 +476,7 @@ class SecondaryNameNode():
         lock.release()
 
     def receiveMsg(self, queue, lock):
+        self.crash_status = False
         lock.acquire(block = True)
         if(not queue.empty()):
             message = queue.get()
@@ -502,6 +509,9 @@ class SecondaryNameNode():
         timeout=time.time()+self.config['sync_period']
         while self.snnLoopRunning:
             if(time.time()>timeout):
+                if(self.crash_status):
+                    exit(-1)
+                self.crash_status = True
                 tt=time.time()+self.config['sync_period']*0.5
                 if(self.heartbeat==1):
                     self.heartbeat = 0
