@@ -15,3 +15,5 @@
 #204 heartbeat failed
 #301 datanode write
 #302 datanode read(3020 read success, 3021 read failure)
+#303 namenode requesting datanode for heartbeat
+#304 datanode sending heartbeat to namenode

@@ -3,6 +3,7 @@ import os
 import fileinput
 import socket
 import tqdm
+import time
 
 SERVER_HOST = "0.0.0.0"
 BUFFER_SIZE = 4096
@@ -11,7 +12,7 @@ MB=1048576
 
 
 class Datanode:
-    def __init__(self, config, path, port):
+    def __init__(self, config, path, port, i):
         self.config = config
         self.datanode_path = path
         self.SERVER_PORT = port
@@ -19,7 +20,8 @@ class Datanode:
         self.datanode_socket.bind(('', self.SERVER_PORT))
         self.datanode_socket.listen(5)
         self.datanodeRunningLoop = True
-        print(f"[*] Listening as {SERVER_HOST}:{self.SERVER_PORT}")
+        self.log = open(self.config["datanode_log_path"] + str(i) + ".txt", "w")
+        self.log.write("[*] Listening as :" + str(self.SERVER_PORT))
 
     # def recieve files
     # def write files
@@ -42,23 +44,26 @@ class Datanode:
                     break
                 buf.append(bytes_read)
             if(len(buf) == 0):
-                print('resend packet')
                 continue
             data = b''.join(buf)
             try:
                 data = json.loads(data.decode())
+                self.log.write("Data -" + str(data) + "received at" + str(time.time()))
             except Exception as e:
-                print('Err: ', buf, e)
+                self.log.write("Error -" + str(e) + "while receiving data at" + str(time.time()))
                 
             if data['code'] == 0:
                 # print(data)
                 self.datanode_socket.close()
                 self.datanodeRunningLoop = False
+                self.log.write("Shutting down datanode at" + str(time.time()))
+                self.log.close()
             elif data['code'] == 301:
                 write_path = os.path.join(self.datanode_path, data['file_name'])
                 write_file = open(write_path, 'wb')
                 write_file.write(data['packet_data'].encode())
                 write_file.close()
+                self.log.write("Sending data -" + str(json.dumps({'code': 3010}).encode()) + "at" + str(time.time()))
                 namenode_receiver_socket.sendall(json.dumps({'code': 3010}).encode())
             elif data['code'] == 302:
                 packet = dict()
@@ -70,7 +75,8 @@ class Datanode:
                     packet['packet_data'] = packet_data.decode()
                 except:
                     packet['code'] = 3021
-                namenode_receiver_socket.sendall(json.dumps(packet).encode()) 
+                self.log.write("Sending data -" + str(json.dumps(packet).encode()) + "at" + str(time.time()))
+                namenode_receiver_socket.sendall(json.dumps(packet).encode())
             namenode_receiver_socket.close()
 
 def datanode_thread(config, path, port):
