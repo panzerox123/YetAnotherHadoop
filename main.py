@@ -185,7 +185,7 @@ def cli(ipc):
         cmd = input(">")
         if cmd.strip().lower() == 'exit':
             ipc.stopAllNodes()
-            exit(0)
+            sys.exit()
         if cmd.strip().lower() == 'format':
             ipc.formatNamenode()
         command = cmd.split()

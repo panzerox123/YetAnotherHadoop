@@ -234,46 +234,49 @@ class PrimaryNameNode:
 
         
     def put(self, file_path, hdfs_path):
-        file_name = os.path.basename(file_path)
-        path_arr = hdfs_path.split('/')
-        file_data = {
-            'type': 'file',
-        }
-        blocks = {}
-        splits, split_size = get_tot_split(file_path, self.config['block_size'])
-        print('Splits info: ', splits, split_size)
-        file = open(file_path, 'rb')
-        if(3*splits > self.free_space()):
-            self.sendMsg(self.mQueue, self.mLock, [1081, None])
-            return
-        for i in range(splits):
-            blks = []
-            packet = {
-                'code': 301,
-                'file_name': file_name+'_'+str(i), 
-            }
-            packet_data = bytes()
-            packet_data = file.read(split_size)
-            packet['packet_data'] = packet_data.decode()
-            for j in range(self.config['replication_factor']):
-                packet['file_name'] = file_name+'_'+ str(i) + '_' + str(j)
-                write_to_node = self.return_free_ptr()
-                self.namenode_config['free_matrix'][write_to_node][1] = False
-                self.namenode_config['datanode_remaining'][self.namenode_config['free_matrix'][write_to_node][0]] -= 1
-                # print('sending info:', packet, self.namenode_config['free_matrix'][write_to_node][0])
-                self.DNMsg(self.namenode_config['free_matrix'][write_to_node][0], packet)
-                blks.append(write_to_node)
-            blocks[i] = blks
-        file_data['blocks'] = blocks
-        file.close()
         try:
-            self.namenode_config['fs_root']['data'] = self.put_recur(path_arr[1:], self.namenode_config['fs_root']['data'],file_name, file_data) 
-        except Exception as e:
-            print("Error", e)
-            self.sendMsg(self.mQueue, self.mLock, [1081, None])
-            return
-        self.dumpNameNode()
-        self.sendMsg(self.mQueue, self.mLock, [1080, None])
+            file_name = os.path.basename(file_path)
+            path_arr = hdfs_path.split('/')
+            file_data = {
+                'type': 'file',
+            }
+            blocks = {}
+            splits, split_size = get_tot_split(file_path, self.config['block_size'])
+            print('Splits info: ', splits, split_size)
+            file = open(file_path, 'rb')
+            if(3*splits > self.free_space()):
+                self.sendMsg(self.mQueue, self.mLock, [1081, None])
+                return
+            for i in range(splits):
+                blks = []
+                packet = {
+                    'code': 301,
+                    'file_name': file_name+'_'+str(i), 
+                }
+                packet_data = bytes()
+                packet_data = file.read(split_size)
+                packet['packet_data'] = packet_data.decode()
+                for j in range(self.config['replication_factor']):
+                    packet['file_name'] = file_name+'_'+ str(i) + '_' + str(j)
+                    write_to_node = self.return_free_ptr()
+                    self.namenode_config['free_matrix'][write_to_node][1] = False
+                    self.namenode_config['datanode_remaining'][self.namenode_config['free_matrix'][write_to_node][0]] -= 1
+                    # print('sending info:', packet, self.namenode_config['free_matrix'][write_to_node][0])
+                    self.DNMsg(self.namenode_config['free_matrix'][write_to_node][0], packet)
+                    blks.append(write_to_node)
+                blocks[i] = blks
+            file_data['blocks'] = blocks
+            file.close()
+            try:
+                self.namenode_config['fs_root']['data'] = self.put_recur(path_arr[1:], self.namenode_config['fs_root']['data'],file_name, file_data) 
+            except Exception as e:
+                print("Error", e)
+                self.sendMsg(self.mQueue, self.mLock, [1081, None])
+                return
+            self.dumpNameNode()
+            self.sendMsg(self.mQueue, self.mLock, [1080, None])
+        except FileNotFoundError:
+            print("File not found")
 
     def rm_recur(self, path_arr):
         pass
