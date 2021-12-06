@@ -33,7 +33,7 @@ class Datanode:
             namenode_receiver_socket, namenode_reciever_addr = self.datanode_socket.accept()
             # namenode_receiver_socket.setblocking(False)
             namenode_receiver_socket.settimeout(2)
-            print('accepted:', namenode_reciever_addr)
+            self.log.write("accepted:" + str(namenode_reciever_addr) + "at" + str(time.time()))
             buf = []
             while True:
                 try:
