@@ -275,7 +275,7 @@ class PrimaryNameNode:
                 return
             self.dumpNameNode()
             self.sendMsg(self.mQueue, self.mLock, [1080, None])
-        except FileNotFoundError:
+        except FileNotFoundError or NotADirectoryError:
             print("File not found")
 
     def rm_recur(self, path_arr):
