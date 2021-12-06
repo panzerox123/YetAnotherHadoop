@@ -6,6 +6,23 @@ import namenode
 import threading
 import time
 from subprocess import call
+import argparse
+
+
+parser=argparse.ArgumentParser()
+parser.add_argument('--mapper')
+parser.add_argument('--reducer')
+parser.add_argument('--input')
+parser.add_argument('--config')
+parser.add_argument('--m')
+parser.add_argument('--r')
+parser.add_argument('--i')
+parser.add_argument('--c')
+parser.add_argument('--output')
+parser.add_argument('--o')
+args=parser.parse_args()
+
+
 #TODO - initialize the datanodes so they can run independently
 class IPC_Pathways():
     def __init__(self, config):
@@ -120,7 +137,7 @@ class IPC_Pathways():
         self.mainReceiverLoop = False
         self.mainReceiver.join()
     
-    def mapred(self,file,mapper,reducer,output):
+    def mapred(self,file,mapper,reducer,output,f):
         try:
             tmpfile_path = os.path.join(self.config['path_to_namenodes'], 'tmpfile')
             try:
@@ -142,6 +159,9 @@ class IPC_Pathways():
             self.put(os.path.join(self.config['path_to_namenodes'], os.path.basename(output)), os.path.dirname(output))
             self.tmpfileLock.release()
             print("MR Function completed")
+            if(f):
+                self.stopAllNodes()
+                exit()
         except Exception as e:
             print("An Error Occured: ", e)
 
@@ -210,7 +230,7 @@ def cli(ipc):
             elif command[0].strip() == 'cat':
                 ipc.cat(command[1])
             elif command[0].strip()=='mr':
-                ipc.mapred(command[1],command[2],command[3],command[4])
+                ipc.mapred(command[1],command[2],command[3],command[4],0)
             elif command[0].strip()=='rm':
                 ipc.rm(command[1])
         except IndexError:
@@ -224,12 +244,14 @@ def main_loop(config):
 
 if __name__ == "__main__":
     try:
-        dfs_setup_config_path = os.path.expandvars(sys.argv[1])
+        if(args.config is None and args.c is None):
+            raise IndexError
+        dfs_setup_config_path = args.config or args.c
         dfs_setup_config_file = open(dfs_setup_config_path, 'r')
         dfs_setup_config = json.load(dfs_setup_config_file)
         dfs_setup_config_file.close()
         cache_file = open('./cache_file', 'w')
-        print(sys.argv[1], file=cache_file)
+        print(args.config or args.c, file=cache_file)
     except IndexError:
         try:
             cache_file = open('./cache_file', 'r')
@@ -253,9 +275,17 @@ if __name__ == "__main__":
     except Exception as e:
         print("Unhandled exception occurred:", e)
         exit(-1)
-    print("<---DFS DETAILS--->")
-    for i in dfs_setup_config:
-        print(i, dfs_setup_config[i], sep=':')
-    print("<---DFS COMMAND LINE--->")
-    main_loop(dfs_setup_config)
+    if(args.mapper is not None or args.m is not None):
+        ipc = IPC_Pathways(dfs_setup_config)
+        m=args.mapper or args.m
+        r=args.reducer or args.r
+        i=args.input or args.i
+        o=args.output or args.o
+        ipc.mapred(i,m,r,o,1)
+    else:
+        print("<---DFS DETAILS--->")
+        for i in dfs_setup_config:
+            print(i, dfs_setup_config[i], sep=':')
+        print("<---DFS COMMAND LINE--->")
+        main_loop(dfs_setup_config)
     exit(0)
