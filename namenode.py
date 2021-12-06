@@ -69,7 +69,15 @@ class PrimaryNameNode:
     def DNMsg(self, datanode_num, data):
         self.namenode_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         # self.namenode_socket.setblocking(0)
-        self.namenode_socket.connect(('', self.datanode_port_list[datanode_num]))
+        try:
+            self.namenode_socket.connect(('', self.datanode_port_list[datanode_num]))
+        except ConnectionRefusedError:
+            try:
+                self.datanode_process_list[datanode_num] = threading.Thread(target=datanode.datanode_thread, args=(self.config, self.namenode_config['datanode_paths'][datanode_num], self.datanode_port_list[datanode_num]))
+                self.namenode_socket.connect(('', self.datanode_port_list[datanode_num]))
+            except:
+                print("Error connecting to sockets")
+
         # self.namenode_socket.settimeout(4)
         # print(json.dumps(data).encode())
         self.namenode_socket.sendall(json.dumps(data).encode())
