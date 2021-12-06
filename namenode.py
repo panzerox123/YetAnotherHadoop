@@ -40,8 +40,8 @@ class PrimaryNameNode:
             self.namenode_config = json.load(namenode_json_file)
             namenode_json_file.close()
         except:
+            self.format_namenode()
             self.sendMsg(mQueue, mLock, [101, None])
-            self.namenode_config = None
         
         self.dnIndex = {
             "tot_emp": self.config["num_datanodes"]*self.config["datanode_size"],
@@ -301,7 +301,7 @@ class PrimaryNameNode:
                 data['file_name'] = file_name + '_' + str(i) + '_' + str(j)
                 out = self.DNMsg(self.namenode_config['free_matrix'][blocks[i][j]][0], data)
                 res = out['code']
-                print(out['packet_data'])
+                #print(out['packet_data'])
                 tmpfile.write(out['packet_data'])
                 j+=1
         tmpfile.close()
