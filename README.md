@@ -1,28 +1,45 @@
 # YetAnotherHadoop
 Final project for Course UE19CS322
 
+## Credits
 - Kunal Bhat PES1UG19CS237
 - Utkarsh Gupta PES1UG19CS549
 - Likith B PES1UG19CS244
 - Varun MK PES1UG19CS558
 
-The following is the report regarding the project "Yet Another Hadoop" of YAH for the Course UE19CS322-Big Data, 5th Semester, 2021. 
-
-The goal of this project is to create a mini HDFS resembling that of Hadoop consisting of the core components, namely, namenodes, datanodes and the replication of blocks across datanodes. Additionally, the system created must also be capable of performing map-reduce functions for computationally heavy tasks using the blocks stored on the system and mostly tolerant to failures. 
-
-The system is first created using the config file provided by the user. The configuration file contains all the specifications required for the HDFS about to be created - Size of the block, path to the datanodes, namenodes, replication factor, number of datanodes, the sync period, log paths, the checkpoints and the path to the virtual file system containing the structure of the system.
-
+## Usage
+### Create new HDFS
+```
+python3 main.py
+```
+### Run HDFS from config
+```
+python3 main.py --config <config_path>
+```
+### Run MapReduce function
+```
+python3 main.py --mapper <mapper.py> --reducer <reducer.py> --input <path_to_input_in_HDFS> --output <path_to_output_in_HDFS>
+```
+### Using the Command Line Interface
 The following CLI commands are provided for the user to interact with the file system. 
 
-- `put <src> <dest>` (move a file into HDFS)
+- `put <local src> <HDFS dest>` (move a file into HDFS)
 - `mkdir <folder>` (create a new directory)
-- `cat <src>` (output a file)
+- `cat <HDFS src>` (output a file)
 - `ls` (list HDFS contents) 
 - `rmdir <src>` (remove an empty directory)
 - `rm <src>` (remove a file)
 - `mr <hdfs input path> <mapper path> <reducer path> <hdfs output path>` (for map reduce)
 - `format` (format the namenode and restart it)
 - `exit` (stop the HDFS)
+
+## Report
+
+The following is the report regarding the project "Yet Another Hadoop" of YAH for the Course UE19CS322-Big Data, 5th Semester, 2021. 
+
+The goal of this project is to create a mini HDFS resembling that of Hadoop consisting of the core components, namely, namenodes, datanodes and the replication of blocks across datanodes. Additionally, the system created must also be capable of performing map-reduce functions for computationally heavy tasks using the blocks stored on the system and mostly tolerant to failures. 
+
+The system is first created using the config file provided by the user. The configuration file contains all the specifications required for the HDFS about to be created - Size of the block, path to the datanodes, namenodes, replication factor, number of datanodes, the sync period, log paths, the checkpoints and the path to the virtual file system containing the structure of the system.
 
 The program is heavily multithreaded. The command line interface is provided by the main thread, which is also responsible for starting and communicating with the Primary and Secondary namenodes, both of which run as their own threads. Each of these namenodes contains two threads, one for the primary functionality, including receiving HDFS queries, and another thread which handles timing related functions such as heartbeats and respawning of processes. They communicate with the main thread using IPC. There are three queues in the program, the pnnQueue, the snnQueue and the mainQueue which are used to send messages to the primary name node, secondary namenode and the main thread respectively. There’s a predefined set of communication codes that are used to identify signals.
 
