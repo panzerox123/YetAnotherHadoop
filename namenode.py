@@ -424,13 +424,13 @@ class PrimaryNameNode:
         elif(message[0] == 105):
             print("mkdir started")
             self.mkdir_parent(message[1])
-            self.logger.info("Make directory PARENT: {}", message[1])
+            self.logger.info("Make directory PARENT: {}".format(message[1]))
             print("mkdir complete")
             return 105
         elif(message[0] == 106):
             print("rmdir started")
             self.rmdir(message[1])
-            self.logger.info("Remove directory: {}", message[1])
+            self.logger.info("Remove directory: {}".format(message[1]))
             print("rmdir complete")
             return 106
         elif(message[0] == 107):
