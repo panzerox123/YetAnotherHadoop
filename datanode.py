@@ -45,13 +45,13 @@ class Datanode:
                     break
                 buf.append(bytes_read)
             if(len(buf) == 0):
-                print('resend packet')
+                self.logger.warning('Empty buffer recieved')
                 continue
             data = b''.join(buf)
             try:
                 data = json.loads(data.decode())
             except Exception as e:
-                print('Err: ', buf, e)
+                self.logger.error('Err: {}'.format(e))
                 
             if data['code'] == 0:
                 # print(data)

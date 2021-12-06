@@ -289,7 +289,7 @@ class PrimaryNameNode:
             self.dumpNameNode()
             self.sendMsg(self.mQueue, self.mLock, [1080, None])
         except FileNotFoundError or NotADirectoryError:
-            self.logger.error("File not found")
+            print("File not found")
     
     def del_file(self,filename,blocks):
         tot_dnodes=self.config['num_datanodes']
@@ -327,7 +327,7 @@ class PrimaryNameNode:
         try:
             self.rm_file_recur(self.namenode_config['fs_root']['data'], path_arr[1:])
         except Exception as e:
-            self.logger.error('File not found')
+            print('File not found')
             self.sendMsg(self.mQueue, self.mLock, [1101,None])
             return
         self.sendMsg(self.mQueue, self.mLock, [1100, None])
@@ -380,8 +380,8 @@ class PrimaryNameNode:
         path_arr = file_path.split('/')
         try:
             self.cat_recur(self.namenode_config['fs_root']['data'], path_arr[1:], pr)
-        except Exception as e:
-            self.logger.error('File not found')
+        except Exception:
+            print('File not found')
             self.sendMsg(self.mQueue, self.mLock, [1091,None])
             return
         self.sendMsg(self.mQueue, self.mLock, [1090, None])
@@ -406,39 +406,53 @@ class PrimaryNameNode:
             self.logger.info("Exiting PNN")
             return 0
         elif(message[0] == 101):
+            print("Formatting started")
             self.format_namenode()
             self.logger.info("Formating data")
+            print("Formatting complete")
             return 101
         elif(message[0] == 100):
             self.sendMsg(self.mQueue, self.mLock, [100, None])
             self.logger.info("Inform main")
             return 100
         elif(message[0] == 104):
+            print("mkdir started")
             self.mkdir(message[1])
             self.logger.info("Make directory: {}".format(message[1]))
+            print("mkdir complete")
             return 104
         elif(message[0] == 105):
+            print("mkdir started")
             self.mkdir_parent(message[1])
             self.logger.info("Make directory PARENT: {}", message[1])
+            print("mkdir complete")
             return 105
         elif(message[0] == 106):
+            print("rmdir started")
             self.rmdir(message[1])
             self.logger.info("Remove directory: {}", message[1])
+            print("rmdir complete")
             return 106
         elif(message[0] == 107):
             self.ls()
             return 107
         elif(message[0] == 108):
+            print("put started")
             self.put(message[1], message[2])
             self.logger.info("Put file:{}".format(message[2]))
+            print("put complete")
             return 108
         elif(message[0] == 109):
+            print("cat started")
             self.cat(message[1], message[2])
             self.logger.info("Cat file:{}".format(message[1]))
+            print("cat complete")
             return 109
         elif(message[0]==110):
+            print("rm started")
             self.rm_file(message[1])
             self.logger.info("Remove file:{}".format(message[1]))
+            print('rm complete')
             return 110
         else:
             return 1
