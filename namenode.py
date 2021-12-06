@@ -33,6 +33,9 @@ class PrimaryNameNode:
         self.tmpfileLock = tmpfileLock
         self.namenode_json_path = os.path.join(self.config["path_to_namenodes"], "namenode.json")
         self.crash_status = False
+        logging.basicConfig(filename=self.config['namenode_log_path'], format='%(asctime)s %(message)s', filemode='a')
+        self.logger = logging.getLogger()
+        self.logger.setLevel(logging.DEBUG)
         # self.free_ptr = 0
         try:
             namenode_json_file = open(self.namenode_json_path, 'r')
@@ -41,7 +44,9 @@ class PrimaryNameNode:
         except:
             self.format_namenode()
             self.sendMsg(mQueue, mLock, [101, None])
-        
+            namenode_json_file = open(self.namenode_json_path, 'r')
+            self.namenode_config = json.load(namenode_json_file)
+            namenode_json_file.close()
         self.dnIndex = {
             "tot_emp": self.config["num_datanodes"]*self.config["datanode_size"],
             "rep_factor": int(self.config["replication_factor"]),
@@ -49,11 +54,6 @@ class PrimaryNameNode:
         }
         for i in range(self.config["num_datanodes"]):
             self.dnIndex["dn"+str(i+1)] = [0]*self.config["datanode_size"]
-
-
-        logging.basicConfig(filename=self.config['namenode_log_path'], format='%(asctime)s %(message)s', filemode='a')
-        self.logger = logging.getLogger()
-        self.logger.setLevel(logging.DEBUG)
         self.SNNSyncThread = threading.Thread(target = self.SNNSync)
         self.SNNSyncThread.start()
         self.initialise_datanodes()
@@ -200,7 +200,7 @@ class PrimaryNameNode:
         self.dumpNameNode()
 
     def sendMsg(self, queue, lock, data):
-        self.logger.debug("Namenode sent:".format(data[0]))
+        self.logger.debug("Primary Namenode sent:{}".format(data[0]))
         lock.acquire(block = True)
         queue.put(data)
         lock.release()
