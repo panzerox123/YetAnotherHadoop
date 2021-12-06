@@ -293,6 +293,7 @@ class PrimaryNameNode:
             for p,j in enumerate(blocks[i]):
                 fname=filename+'_'+str(i)+'_'+str(p)
                 b_path=os.path.join(self.config['path_to_datanodes'],str(j%tot_dnodes),fname)
+                self.namenode_config['free_matrix'][j][1]=True
                 try:
                     if(os.path.isfile(b_path)):
                         os.remove(b_path)
