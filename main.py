@@ -44,7 +44,7 @@ class IPC_Pathways():
             self.receiveMsg()
 
     def sendMsg(self, queue, lock, data):
-        print("Main sent", data[0])
+        # print("Main sent", data[0])
         lock.acquire(block = True)
         queue.put(data)
         lock.release()
@@ -54,7 +54,7 @@ class IPC_Pathways():
         message = [1, None]
         if(not self.mQueue.empty()):
             message = self.mQueue.get()
-            print("Main rcvd", message[0])
+            # print("Main rcvd", message[0])
         self.mLock.release()
         if(message[0] == 0):
             return 0
@@ -141,6 +141,7 @@ class IPC_Pathways():
                     call('python3 {}'.format(reducer).split(),stdin=i,stdout=o)
             self.put(os.path.join(self.config['path_to_namenodes'], os.path.basename(output)), os.path.dirname(output))
             self.tmpfileLock.release()
+            print("MR Function completed")
         except Exception as e:
             print("An Error Occured: ", e)
 
@@ -188,6 +189,7 @@ def cli(ipc):
     while True:
         cmd = input(">")
         if cmd.strip().lower() == 'exit':
+            print("Exiting ...")
             ipc.stopAllNodes()
             exit(0)
         if cmd.strip().lower() == 'format':

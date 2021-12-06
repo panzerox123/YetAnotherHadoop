@@ -1,8 +1,7 @@
 import json
 import os
-import fileinput
 import socket
-import tqdm
+import logging
 
 SERVER_HOST = "0.0.0.0"
 BUFFER_SIZE = 4096
@@ -16,10 +15,14 @@ class Datanode:
         self.datanode_path = path
         self.SERVER_PORT = port
         self.datanode_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.datanode_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.datanode_socket.bind(('', self.SERVER_PORT))
         self.datanode_socket.listen(5)
         self.datanodeRunningLoop = True
-        print(f"[*] Listening as {SERVER_HOST}:{self.SERVER_PORT}")
+        logging.basicConfig(filename=os.path.join(self.config['datanode_log_path'], 'DATANODE_'+str(port)+'.log'), format='%(asctime)s %(message)s', filemode='a')
+        self.logger = logging.getLogger()
+        self.logger.setLevel(logging.DEBUG)
+        self.logger.info(f"Listening as {SERVER_HOST}:{self.SERVER_PORT}")
 
     # def recieve files
     # def write files
@@ -31,7 +34,7 @@ class Datanode:
             namenode_receiver_socket, namenode_reciever_addr = self.datanode_socket.accept()
             # namenode_receiver_socket.setblocking(False)
             namenode_receiver_socket.settimeout(2)
-            print('accepted:', namenode_reciever_addr)
+            self.logger.info('Connection accepted:{}'.format(namenode_reciever_addr))
             buf = []
             while True:
                 try:
@@ -52,9 +55,11 @@ class Datanode:
                 
             if data['code'] == 0:
                 # print(data)
+                self.logger.info("Exiting")
                 self.datanode_socket.close()
                 self.datanodeRunningLoop = False
             elif data['code'] == 301:
+                self.logger.info("Writing data: {}".format(data['file_name']))
                 write_path = os.path.join(self.datanode_path, data['file_name'])
                 write_file = open(write_path, 'wb')
                 write_file.write(data['packet_data'].encode())
@@ -68,6 +73,7 @@ class Datanode:
                     packet_data = read_file.read(self.config['block_size']*MB)
                     packet['code'] = 3020
                     packet['packet_data'] = packet_data.decode()
+                    self.logger.info("Reading data: {}".format(data['file_name']))
                 except:
                     packet['code'] = 3021
                 namenode_receiver_socket.sendall(json.dumps(packet).encode()) 

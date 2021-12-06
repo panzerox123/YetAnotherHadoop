@@ -2,15 +2,11 @@ import math
 import sys
 import time
 import json
-from typing import Pattern
-from fsplit.filesplit import Filesplit
 import threading
 import json
 import os
 import socket
-import tqdm
 import shutil
-import multiprocessing
 import datanode
 import logging
 
@@ -54,6 +50,10 @@ class PrimaryNameNode:
         for i in range(self.config["num_datanodes"]):
             self.dnIndex["dn"+str(i+1)] = [0]*self.config["datanode_size"]
 
+
+        logging.basicConfig(filename=self.config['namenode_log_path'], format='%(asctime)s %(message)s', filemode='a')
+        self.logger = logging.getLogger()
+        self.logger.setLevel(logging.DEBUG)
         self.SNNSyncThread = threading.Thread(target = self.SNNSync)
         self.SNNSyncThread.start()
         self.initialise_datanodes()
@@ -63,6 +63,7 @@ class PrimaryNameNode:
         self.datanode_port_list = []
         init_port = 9000
         for i in range(self.config['num_datanodes']):
+            self.logger.debug("Starting DN: {}".format(i))
             self.datanode_port_list.append(i+init_port)
             self.datanode_process_list.append(threading.Thread(target=datanode.datanode_thread, args=(self.config, self.namenode_config['datanode_paths'][i], init_port+i)))
         for i in self.datanode_process_list:
@@ -70,6 +71,7 @@ class PrimaryNameNode:
 
     def DNMsg(self, datanode_num, data):
         self.namenode_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.namenode_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         # self.namenode_socket.setblocking(0)
         try:
             self.namenode_socket.connect(('', self.datanode_port_list[datanode_num]))
@@ -78,7 +80,7 @@ class PrimaryNameNode:
                 self.datanode_process_list[datanode_num] = threading.Thread(target=datanode.datanode_thread, args=(self.config, self.namenode_config['datanode_paths'][datanode_num], self.datanode_port_list[datanode_num]))
                 self.namenode_socket.connect(('', self.datanode_port_list[datanode_num]))
             except:
-                print("Error connecting to sockets")
+                self.logger.error("Error connecting to sockets")
 
         # self.namenode_socket.settimeout(4)
         # print(json.dumps(data).encode())
@@ -198,7 +200,7 @@ class PrimaryNameNode:
         self.dumpNameNode()
 
     def sendMsg(self, queue, lock, data):
-        print("namenode sent", data[0])
+        self.logger.debug("Namenode sent:".format(data[0]))
         lock.acquire(block = True)
         queue.put(data)
         lock.release()
@@ -281,13 +283,13 @@ class PrimaryNameNode:
             try:
                 self.namenode_config['fs_root']['data'] = self.put_recur(path_arr[1:], self.namenode_config['fs_root']['data'],file_name, file_data) 
             except Exception as e:
-                print("Error", e)
+                self.logger.error("Error: {}".format(e))
                 self.sendMsg(self.mQueue, self.mLock, [1081, None])
                 return
             self.dumpNameNode()
             self.sendMsg(self.mQueue, self.mLock, [1080, None])
         except FileNotFoundError or NotADirectoryError:
-            print("File not found")
+            self.logger.error("File not found")
     
     def del_file(self,filename,blocks):
         tot_dnodes=self.config['num_datanodes']
@@ -301,7 +303,7 @@ class PrimaryNameNode:
                     if(os.path.isfile(b_path)):
                         os.remove(b_path)
                 except:
-                    print("An Error Occured")
+                    self.logger.error("An Error Occured")
 
     def rm_file_recur(self, curr, path_arr):
         if(len(path_arr) > 1):
@@ -325,14 +327,14 @@ class PrimaryNameNode:
         try:
             self.rm_file_recur(self.namenode_config['fs_root']['data'], path_arr[1:])
         except Exception as e:
-            print('File not found', e)
+            self.logger.error('File not found')
             self.sendMsg(self.mQueue, self.mLock, [1101,None])
             return
         self.sendMsg(self.mQueue, self.mLock, [1100, None])
 
                         
     def read(self, file_name, blocks, pr):
-        print(file_name,blocks)
+        self.logger.debug('Reading: {} {}'.format(file_name, blocks))
         self.tmpfileLock.acquire()
         data = {
             'code': 302
@@ -364,7 +366,7 @@ class PrimaryNameNode:
             if path_arr[0] not in curr.keys() or curr[path_arr[0]]['type'] != 'dir':
                 raise FileNotFoundError
             else:
-                self.cat_recur(curr[path_arr[0]]['data'], path_arr[1:])
+                self.cat_recur(curr[path_arr[0]]['data'], path_arr[1:], pr)
         else:
             if path_arr[0] not in curr.keys():
                 raise FileNotFoundError
@@ -379,7 +381,7 @@ class PrimaryNameNode:
         try:
             self.cat_recur(self.namenode_config['fs_root']['data'], path_arr[1:], pr)
         except Exception as e:
-            print('File not found', e)
+            self.logger.error('File not found')
             self.sendMsg(self.mQueue, self.mLock, [1091,None])
             return
         self.sendMsg(self.mQueue, self.mLock, [1090, None])
@@ -389,7 +391,7 @@ class PrimaryNameNode:
         lock.acquire(block = True)
         if(not queue.empty()):
             message = queue.get()
-            print("namenode rcvd", message[0])
+            self.logger.info("Namenode recieved:{}".format(message[0]))
         else:
             message = [1, None]
         lock.release()
@@ -401,33 +403,42 @@ class PrimaryNameNode:
             for i in self.datanode_process_list:
                 i.join()
             # self.DNMsg(0, {'code': 0})
+            self.logger.info("Exiting PNN")
             return 0
         elif(message[0] == 101):
             self.format_namenode()
+            self.logger.info("Formating data")
             return 101
         elif(message[0] == 100):
             self.sendMsg(self.mQueue, self.mLock, [100, None])
+            self.logger.info("Inform main")
             return 100
         elif(message[0] == 104):
             self.mkdir(message[1])
+            self.logger.info("Make directory: {}".format(message[1]))
             return 104
         elif(message[0] == 105):
             self.mkdir_parent(message[1])
+            self.logger.info("Make directory PARENT: {}", message[1])
             return 105
         elif(message[0] == 106):
             self.rmdir(message[1])
+            self.logger.info("Remove directory: {}", message[1])
             return 106
         elif(message[0] == 107):
             self.ls()
             return 107
         elif(message[0] == 108):
             self.put(message[1], message[2])
+            self.logger.info("Put file:{}".format(message[2]))
             return 108
         elif(message[0] == 109):
             self.cat(message[1], message[2])
+            self.logger.info("Cat file:{}".format(message[1]))
             return 109
         elif(message[0]==110):
             self.rm_file(message[1])
+            self.logger.info("Remove file:{}".format(message[1]))
             return 110
         else:
             return 1
@@ -461,11 +472,14 @@ class SecondaryNameNode():
         self.snnQueue = snnQueue
         self.snnLock = snnLock
         self.config = config
+        logging.basicConfig(filename=self.config['namenode_log_path'], format='%(asctime)s %(message)s', filemode='a')
+        self.logger = logging.getLogger()
+        self.logger.setLevel(logging.DEBUG)
         self.PNNSyncThread = threading.Thread(target = self.PNNSync)
         self.PNNSyncThread.start()
 
     def sendMsg(self, queue, lock, data):
-        print("secondary namenode sent", data[0])
+        self.logger.debug("secondary namenode sent:{}".format(data[0]))
         lock.acquire(block = True)
         queue.put(data)
         lock.release()
@@ -475,13 +489,14 @@ class SecondaryNameNode():
         lock.acquire(block = True)
         if(not queue.empty()):
             message = queue.get()
-            print("Secondary namenode rcvd", message[0])
+            self.logger.debug("Secondary namenode rcvd:{}".format(message[0]))
         else:
             message = [1, None]
         lock.release()
         if(message[0] == 0):
             self.snnLoopRunning = False
             self.PNNSyncThread.join()
+            self.logger.info("Exiting SNN")
             return 0
         elif(message[0] == 200):
             self.sendMsg(self.mQueue, self.mLock, [200, None])
@@ -495,6 +510,7 @@ class SecondaryNameNode():
     def pnnCrashStatus(self):
         if(self.name_node_crash):
             self.sendMsg(self.mQueue, self.mLock, [204, None])
+            self.logger.error("SNN -> PNN Has crashed. Taking over...")
             return True
         else:
             return False
@@ -510,7 +526,7 @@ class SecondaryNameNode():
                 tt=time.time()+self.config['sync_period']*0.5
                 if(self.heartbeat==1):
                     self.heartbeat = 0
-                    print("heartbeat received")
+                    self.logger.debug("Heartbeat received")
                     self.snnLoopRunning=False
                     break
                 while True:
@@ -518,7 +534,7 @@ class SecondaryNameNode():
                         if(self.heartbeat == 1):
                             self.heartbeat = 0
                             self.snnLoopRunning=False
-                            print("heartbeat received")
+                            self.logger.debug("Heartbeat received")
                         else:
                             break
                 if(self.snnLoopRunning):
