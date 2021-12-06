@@ -24,7 +24,7 @@ def get_tot_split(file_name,block_size): #contains the file split function
     return tot_splits, split_size
 
 class PrimaryNameNode:
-    def __init__(self, mQueue, mLock, pnnQueue, pnnLock, snnQueue, snnLock, config):
+    def __init__(self, mQueue, mLock, pnnQueue, pnnLock, snnQueue, snnLock, config, tmpfileLock):
         self.pnnLoopRunning = True
         self.mQueue = mQueue
         self.mLock = mLock
@@ -33,6 +33,7 @@ class PrimaryNameNode:
         self.snnQueue = snnQueue
         self.snnLock = snnLock
         self.config = config
+        self.tmpfileLock = tmpfileLock
         self.namenode_json_path = os.path.join(self.config["path_to_namenodes"], "namenode.json")
         # self.free_ptr = 0
         try:
@@ -288,6 +289,7 @@ class PrimaryNameNode:
     
     def read(self, file_name, blocks):
         print(file_name,blocks)
+        self.tmpfileLock.acquire()
         data = {
             'code': 302
         }
@@ -308,6 +310,7 @@ class PrimaryNameNode:
                 tmpfile.write(out['packet_data'])
                 j+=1
         tmpfile.close()
+        self.tmpfileLock.release()
 
 
     def cat_recur(self, curr, path_arr):
@@ -476,8 +479,8 @@ def secondary_namenode_thread(mQueue, mLock, pnnQueue, pnnLock, snnQueue, snnLoc
     exit(0)
 
 
-def primary_namenode_thread(mQueue, mLock, pnnQueue, pnnLock, snnQueue, snnLock, config):
-    pnn = PrimaryNameNode(mQueue, mLock, pnnQueue, pnnLock, snnQueue, snnLock, config)
+def primary_namenode_thread(mQueue, mLock, pnnQueue, pnnLock, snnQueue, snnLock, config, tmpfileLock):
+    pnn = PrimaryNameNode(mQueue, mLock, pnnQueue, pnnLock, snnQueue, snnLock, config, tmpfileLock)
     status = 1
     while(status):
         status = pnn.receiveMsg(pnnQueue, pnnLock)

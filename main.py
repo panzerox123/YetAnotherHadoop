@@ -11,6 +11,7 @@ class IPC_Pathways():
     def __init__(self, config):
         self.config = config
         self.mainReceiverLoop = True
+        self.tmpfileLock = multiprocessing.Lock()
         self.mQueue = multiprocessing.SimpleQueue()
         self.mLock = multiprocessing.Lock()
 
@@ -20,7 +21,7 @@ class IPC_Pathways():
         self.snnQueue = multiprocessing.SimpleQueue()
         self.snnLock = multiprocessing.Lock()
 
-        self.PNN = multiprocessing.Process(target=namenode.primary_namenode_thread, args=(self.mQueue, self.mLock, self.pnnQueue, self.pnnLock, self.snnQueue, self.snnLock, self.config))
+        self.PNN = multiprocessing.Process(target=namenode.primary_namenode_thread, args=(self.mQueue, self.mLock, self.pnnQueue, self.pnnLock, self.snnQueue, self.snnLock, self.config, self.tmpfileLock))
         self.PNN.start()
         self.sendMsg(self.pnnQueue, self.pnnLock, [100, None])
 
@@ -124,9 +125,8 @@ class IPC_Pathways():
             except:
                 pass
             self.cat(file)
-            time.sleep(10)
-            while not os.path.exists(tmpfile_path):
-                time.sleep(1)
+            time.sleep(5)
+            self.tmpfileLock.acquire()
             with open(tmpfile_path, 'r') as i:
                 with open(os.path.join(self.config['path_to_namenodes'], 'mapper'),'w') as o:
                     call('python3 {}'.format(mapper).split(),stdin=i,stdout=o)
@@ -137,8 +137,9 @@ class IPC_Pathways():
                 with open(os.path.join(self.config['path_to_namenodes'], os.path.basename(output)),'w') as o:
                     call('python3 {}'.format(reducer).split(),stdin=i,stdout=o)
             self.put(os.path.join(self.config['path_to_namenodes'], os.path.basename(output)), os.path.dirname(output))
-        except:
-            print("An Error Occured")
+            self.tmpfileLock.release()
+        except Exception as e:
+            print("An Error Occured: ", e)
 
 def create_dfs():
     config_path = input("Enter path for configuration file: ")
