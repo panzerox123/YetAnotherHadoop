@@ -57,4 +57,3 @@ The datanode server is continuously listening for data and stores blocks as it r
 
 For map-reduce jobs, data from input file blocks are read into a temporary file using the internal cat function. From here, mapper and reducer programs read the input as they would from stdin. The mapper output is stored in a temporary sorted file. The final output is stored in the specified output file. 
 
-This was a really interesting project and we have definitely accomplished our goal of gaining a deeper understanding of not just Hadoop but how real-life distributed systems are built.
